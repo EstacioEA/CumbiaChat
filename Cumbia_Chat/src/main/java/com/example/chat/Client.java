@@ -18,12 +18,27 @@ public class Client {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter out = new PrintWriter(socket.getOutputStream(),true);
 
+            // Hilo para escuchar mensajes del servidor y mostrarlos en la terminal del cliente (esto puede ser opcional xdd)h
+            new Thread(() -> {
+                try {
+                    String serverMsg;
+                    while ((serverMsg = in.readLine()) != null) {
+                        System.out.println(">> " + serverMsg);
+                    }
+                } catch (Exception e) {
+                    System.out.println("Disconnected from server.");
+                }
+            }).start();
+
+
             while (true) {
                 System.out.println("Enter message:");
                 String message = userInput.readLine();
-                if (message.equals("exit")) {
+                if (message.equalsIgnoreCase("exit")) {
                     socket.close();
+                    break;
                 }
+                out.println(message);
             }
         } catch (Exception e) {
             e.printStackTrace();

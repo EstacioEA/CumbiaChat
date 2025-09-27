@@ -4,6 +4,8 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/CumbiaChat.iml" filepath="$PROJECT_DIR$/.idea/CumbiaChat.iml" />
       <module fileurl="file://$PROJECT_DIR$/Cumbia_Chat.iml" filepath="$PROJECT_DIR$/Cumbia_Chat.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Cumbia_Chat.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Cumbia_Chat.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/Cumbia_Chat.test.iml" filepath="$PROJECT_DIR$/.idea/modules/Cumbia_Chat.test.iml" />
     </modules>
   </component>
 </project>
