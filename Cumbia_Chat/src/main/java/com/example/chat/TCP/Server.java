@@ -1,4 +1,4 @@
-package com.example.chat;
+package com.example.chat.TCP;
 
 import java.io.IOException;
 import java.io.PrintWriter;

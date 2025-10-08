@@ -1,4 +1,4 @@
-package com.example.chat;
+package com.example.chat.TCP;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
