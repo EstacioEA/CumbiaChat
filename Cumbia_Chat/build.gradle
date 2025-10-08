@@ -19,7 +19,6 @@ dependencies {
 
     // Opcional: si usas Gson
     implementation 'com.google.code.gson:gson:2.10.1'
-    implementation 'javax.sound:javax.sound-api:1.0'
 }
 
 tasks.named('test') {

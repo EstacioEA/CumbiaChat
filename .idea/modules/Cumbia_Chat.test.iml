@@ -15,7 +15,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="Cumbia_Chat.main" />
     <orderEntry type="library" name="Gradle: com.google.code.gson:gson:2.10.1" level="project" />
-    <orderEntry type="library" name="Gradle: javax.sound:javax.sound-api:1.0" level="project" />
   </component>
   <component name="TestModuleProperties" production-module="Cumbia_Chat.main" />
 </module>

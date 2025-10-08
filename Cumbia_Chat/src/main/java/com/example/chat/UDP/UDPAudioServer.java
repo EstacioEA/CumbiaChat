@@ -1,52 +1,43 @@
 package com.example.chat.UDP;
 
+import javax.sound.sampled.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.List;
 
 public class UDPAudioServer {
 
     private static final int PORT = 5001;
-    private static List<InetAddress> clients = new ArrayList<>();
-    private static List<Integer> ports = new ArrayList<>();
 
-    public static void main(String[] args) throws Exception {
-        DatagramSocket socket = new DatagramSocket(PORT);
-        System.out.println(" Servidor de audio UDP escuchando en puerto " + PORT);
+    public static void main(String[] args) {
+        try {
+            // Configuración de audio (debe coincidir con el cliente)
+            AudioFormat format = new AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    8000.0F, 16, 1, 2, 8000.0F, false
+            );
 
-        byte[] buffer = new byte[4096];
+            DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
+            SourceDataLine speaker = (SourceDataLine) AudioSystem.getLine(info);
+            speaker.open(format);
+            speaker.start();
 
-        while (true) {
-            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            socket.receive(packet);
+            System.out.println(" Servidor de audio UDP escuchando en puerto " + PORT);
+            System.out.println(" Reproduciendo audio en tiempo real...");
 
-            InetAddress clientAddress = packet.getAddress();
-            int clientPort = packet.getPort();
+            DatagramSocket socket = new DatagramSocket(PORT);
+            byte[] buffer = new byte[4096];
 
-            // Registrar cliente (simplificado)
-            if (!clients.contains(clientAddress)) {
-                clients.add(clientAddress);
-                ports.add(clientPort);
-                System.out.println(" Cliente conectado: " + clientAddress + ":" + clientPort);
+            while (true) {
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                socket.receive(packet);
+
+                // Enviar los datos directamente al altavoz
+                speaker.write(packet.getData(), 0, packet.getLength());
             }
 
-            // Retransmitir a todos los demás clientes
-            for (int i = 0; i < clients.size(); i++) {
-                if (clients.get(i).equals(clientAddress) && ports.get(i) == clientPort) {
-                    continue; // No enviar de vuelta al emisor
-                }
-                DatagramPacket out = new DatagramPacket(
-                        packet.getData(),
-                        packet.getLength(),
-                        clients.get(i),
-                        ports.get(i)
-                );
-                socket.send(out);
-            }
-
-            System.out.print(".");
+        } catch (Exception e) {
+            System.err.println("Error en el servidor de audio:");
+            e.printStackTrace();
         }
     }
 }
