@@ -2,25 +2,26 @@ package com.example.chat.audio;
 
 import javax.sound.sampled.*;
 import java.io.File;
-import java.io.IOException;
 
 public class AudioPlayer {
-
-    public static void playAudio(String filePath) {
+    public static void playAudio(String path) {
         try {
-            File audioFile = new File(filePath);
-            AudioInputStream audioStream = AudioSystem.getAudioInputStream(audioFile);
+            File file = new File(path);
+            if (!file.exists()) {
+                System.err.println("Archivo no encontrado: " + path);
+                return;
+            }
+            AudioInputStream ais = AudioSystem.getAudioInputStream(file);
             Clip clip = AudioSystem.getClip();
-            clip.open(audioStream);
+            clip.open(ais);
             clip.start();
-
-            // Opcional: esperar a que termine la reproducción
-            // while (!clip.isRunning()) Thread.sleep(10);
-            // while (clip.isRunning()) Thread.sleep(10);
-            // clip.close();
-
-        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
-            System.err.println("Error al reproducir el audio: " + e.getMessage());
+            System.out.println("Reproduciendo... (esperando a que termine)");
+            while (clip.isRunning()) Thread.sleep(100);
+            clip.close();
+        } catch (Exception e) {
+            System.err.println("Error reproduciendo audio: " + e.getMessage());
         }
+
     }
+
 }

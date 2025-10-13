@@ -2,189 +2,134 @@ package com.example.chat.TCP;
 
 import com.example.chat.audio.AudioPlayer;
 import com.example.chat.audio.AudioRecorder;
+import com.example.chat.UDP.UDPAudioClient;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.Scanner;
 
 /**
- * Cliente TCP que:
- * - Envía mensajes de texto (println)
- * - Envía audio: primero header "AUDIO:filename:filesize" por println, luego bytes por dataOut
- * - Puede pedir historial: "historial", "historial:N", "buscar:term" -> lee hasta END_OF_HISTORY
+ * Cliente TCP interactivo. El servidor maneja prompts y el cliente responde.
+ * - Para enviar nota de voz (archivo) en grupo: cliente envía header AUDIO:... e inmediatamente el fichero bytes.
+ * - Para llamada: el cliente arranca UDPAudioClient(localPort, serverHost, serverVoicePort) y se une a sala.
+ *
+ * Usa el prompt del servidor; comandos especiales del cliente:
+ *  - /voice-local  -> graba y envía como nota de voz (archivo) al chat actual si el servidor lo solicita
+ *  - /start-voice  -> (cliente) request VOICE_REQUEST, then VOICE_JOIN...
  */
 public class Client {
-    private static final String SERVER_IP = "localhost";
+    private static final String SERVER = "localhost";
     private static final int PORT = 12345;
-    private static final String AUDIO_FOLDER = "audios";
-    private static final String AUDIO_FILE = AUDIO_FOLDER + "/temp_voice.wav";
-
-    private static Socket socket;
-    private static BufferedReader userInput;
-    private static BufferedReader in;
-    private static PrintWriter out;
-    private static DataInputStream dataIn;
-    private static DataOutputStream dataOut;
+    private static final String AUDIO_DIR = "audios";
+    private static final String TEMP_FILE = AUDIO_DIR + "/temp_voice.wav";
 
     public static void main(String[] args) {
-        try {
-            System.out.println("Archivos se guardarán en: " + new File("").getAbsolutePath());
-            socket = new Socket(SERVER_IP, PORT);
-            System.out.println("Connected to server on port: " + PORT);
+        new Client().start();
+    }
 
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
-            dataIn = new DataInputStream(socket.getInputStream());
-            dataOut = new DataOutputStream(socket.getOutputStream());
+    public void start() {
+        try (Socket socket = new Socket(SERVER, PORT)) {
+            System.out.println("Conectado al servidor " + SERVER + ":" + PORT);
 
-            userInput = new BufferedReader(new InputStreamReader(System.in));
+            BufferedReader serverIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter serverOut = new PrintWriter(socket.getOutputStream(), true);
+            DataOutputStream dataOut = new DataOutputStream(socket.getOutputStream());
+            BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
 
-            new Thread(Client::listenForMessages).start();
-
-            while (true) {
-                System.out.println("\n1) Enviar mensaje de texto");
-                System.out.println("2) Enviar mensaje de voz");
-                System.out.println("3) Ver historial completo");
-                System.out.println("4) Ver últimos N mensajes");
-                System.out.println("5) Buscar en historial");
-                System.out.println("6) Salir");
-                System.out.print("Elige: ");
-                String option = userInput.readLine();
-                if (option == null) continue;
-                switch (option.trim()) {
-                    case "1":
-                        System.out.print("Escribe tu mensaje: ");
-                        String msg = userInput.readLine();
-                        if (msg != null && !msg.equalsIgnoreCase("exit")) {
-                            out.println(msg);
-                        }
-                        break;
-                    case "2":
-                        sendVoiceMessage();
-                        break;
-                    case "3":
-                        out.println("historial");
-                        leerRespuestaMultilinea();
-                        break;
-                    case "4":
-                        System.out.print("¿Cuántos mensajes recientes ver? ");
-                        String n = userInput.readLine();
-                        out.println("historial:" + n);
-                        leerRespuestaMultilinea();
-                        break;
-                    case "5":
-                        System.out.print("Término a buscar: ");
-                        String term = userInput.readLine();
-                        out.println("buscar:" + term);
-                        leerRespuestaMultilinea();
-                        break;
-                    case "6":
-                        out.println("exit");
-                        socket.close();
-                        return;
-                    default:
-                        System.out.println("Opción inválida");
+            // Reader thread: imprime todo lo que llega del servidor
+            Thread reader = new Thread(() -> {
+                try {
+                    String line;
+                    while ((line = serverIn.readLine()) != null) {
+                        System.out.println(line);
+                    }
+                } catch (IOException e) {
+                    System.out.println("Conexión cerrada por servidor.");
                 }
+            });
+            reader.setDaemon(true);
+            reader.start();
+
+            new File(AUDIO_DIR).mkdirs();
+
+            // Main input loop: lo que el usuario escriba se envía al servidor.
+            String input;
+            while ((input = stdin.readLine()) != null) {
+                input = input.trim();
+                // Client-side shortcuts:
+                if (input.equalsIgnoreCase("/voicefile")) {
+                    // Record and then send as TCP audio file using header AUDIO:filename:filesize:ALL:
+                    System.out.println("Grabando nota de voz... presiona ENTER para detener.");
+                    AudioRecorder rec = new AudioRecorder();
+                    rec.startRecording();
+                    stdin.readLine(); // wait
+                    rec.stopRecording(TEMP_FILE);
+                    File f = new File(TEMP_FILE);
+                    if (!f.exists()) {
+                        System.out.println("No se generó audio.");
+                        continue;
+                    }
+                    long size = f.length();
+                    String header = "AUDIO:" + f.getName() + ":" + size + ":ALL:";
+                    serverOut.println(header);
+                    serverOut.flush();
+                    try (FileInputStream fis = new FileInputStream(f)) {
+                        byte[] buf = new byte[4096];
+                        int r;
+                        while ((r = fis.read(buf)) != -1) dataOut.write(buf, 0, r);
+                        dataOut.flush();
+                    }
+                    System.out.println("Nota de voz enviada: " + f.getName());
+                    continue;
+                }
+
+                // Voice (UDP) flow - client requests server voice port and joins
+                if (input.startsWith("/joinvoice ")) {
+                    // usage: /joinvoice <groupName> <localUdpPort>
+                    String[] p = input.split("\\s+");
+                    if (p.length < 3) {
+                        System.out.println("Uso: /joinvoice <groupName> <localUdpPort>");
+                        continue;
+                    }
+                    String group = p[1];
+                    int localPort = Integer.parseInt(p[2]);
+
+                    // ask server for voice port
+                    serverOut.println("VOICE_REQUEST:" + group);
+                    serverOut.flush();
+
+                    // read server responses (synchronously here)
+                    String resp;
+                    while ((resp = serverIn.readLine()) != null) {
+                        if (resp.startsWith("VOICE_PORT:")) {
+                            int port = Integer.parseInt(resp.split(":")[1]);
+                            System.out.println("Sala de voz en puerto " + port + ". Uniéndome y arrancando UDPAudioClient...");
+                            // Start UDP client: send to server's UDP room port; also announce local UDP port to server
+                            UDPAudioClient udpClient = new UDPAudioClient(localPort, SERVER, port);
+                            udpClient.start(); // starts sender+receiver
+                            // tell server to register this participant (so server forwards to others)
+                            serverOut.println("VOICE_JOIN:" + group + ":" + localPort);
+                            serverOut.flush();
+                            break;
+                        } else if (resp.equals("VOICE_ERR")) {
+                            System.out.println("No se pudo crear sala de voz.");
+                            break;
+                        } else if (resp.equals("NO_VOICE")) {
+                            System.out.println("No hay sala de voz para ese grupo.");
+                            break;
+                        } else {
+                            // print other server lines until the VOICE_PORT or NO_VOICE arrives
+                            System.out.println(resp);
+                        }
+                    }
+                    continue;
+                }
+
+                // default: send line to server
+                serverOut.println(input);
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            System.out.println("Client terminated");
-        }
-    }
-
-    private static void sendVoiceMessage() {
-        try {
-            new File(AUDIO_FOLDER).mkdirs();
-
-            System.out.println("Grabando... Presiona ENTER para detener.");
-            AudioRecorder recorder = new AudioRecorder();
-            recorder.startRecording();
-
-            new BufferedReader(new InputStreamReader(System.in)).readLine(); // esperar ENTER
-            recorder.stopRecording(AUDIO_FILE);
-
-            File file = new File(AUDIO_FILE);
-            long length = file.length();
-            out.println("AUDIO:" + file.getName() + ":" + length);
-
-            try (FileInputStream fis = new FileInputStream(file)) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    dataOut.write(buffer, 0, bytesRead);
-                }
-                dataOut.flush();
-            }
-
-            System.out.println("Mensaje de voz enviado. Archivo: " + AUDIO_FILE);
-        } catch (Exception e) {
-            System.err.println("Error al enviar el audio: " + e.getMessage());
-        }
-    }
-
-    private static void leerRespuestaMultilinea() {
-        try {
-            String line;
-            while ((line = in.readLine()) != null) {
-                if ("END_OF_HISTORY".equals(line)) break;
-                System.out.println(line);
-            }
-        } catch (IOException e) {
-            System.err.println("Error leyendo respuesta multilinea: " + e.getMessage());
-        }
-    }
-
-    private static void listenForMessages() {
-        try {
-            String line;
-            while ((line = in.readLine()) != null) {
-                if (line.startsWith("AUDIO:")) {
-                    handleIncomingAudio(line);
-                } else if (line.equalsIgnoreCase("exit")) {
-                    break;
-                } else {
-                    System.out.println(">> " + line);
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("Disconnected from server.");
-        }
-    }
-
-    private static void handleIncomingAudio(String header) {
-        try {
-            String[] parts = header.split(":");
-            if (parts.length != 3) return;
-
-            String fileName = parts[1];
-            long fileSize = Long.parseLong(parts[2]);
-
-            new File(AUDIO_FOLDER).mkdirs();
-            String outputPath = AUDIO_FOLDER + "/received_" + fileName;
-            try (FileOutputStream fos = new FileOutputStream(outputPath)) {
-                byte[] buffer = new byte[4096];
-                long totalRead = 0;
-                while (totalRead < fileSize) {
-                    int toRead = (int) Math.min(buffer.length, fileSize - totalRead);
-                    int bytesRead = dataIn.read(buffer, 0, toRead);
-                    if (bytesRead == -1) break;
-                    fos.write(buffer, 0, bytesRead);
-                    totalRead += bytesRead;
-                }
-                fos.flush();
-            }
-
-            System.out.println("🎤 Audio recibido: " + outputPath);
-            System.out.print("¿Reproducir ahora? (s/n): ");
-            String resp = new BufferedReader(new InputStreamReader(System.in)).readLine();
-            if ("s".equalsIgnoreCase(resp.trim())) {
-                AudioPlayer.playAudio(outputPath);
-            }
-
-        } catch (Exception e) {
-            System.err.println("Error al recibir audio: " + e.getMessage());
         }
     }
 }

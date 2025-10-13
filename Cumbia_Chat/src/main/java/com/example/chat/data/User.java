@@ -1,54 +1,34 @@
 package com.example.chat.data;
 
-import java.net.Socket;
 import java.io.Serializable;
+import java.net.Socket;
 
-/**
- * Representa un usuario dentro del sistema de chat.
- * Contiene su nombre, dirección IP, puerto y socket asociado.
- */
 public class User implements Serializable {
     private String username;
-    private String address;
-    private int port;
-    private transient Socket socket;
+    private transient Socket socket; // no serializar socket
 
-    public User(String username, String address, int port) {
+    public User(String username) {
         this.username = username;
-        this.address = address;
-        this.port = port;
     }
 
-    public String getUsername() {
-        return username;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public Socket getSocket() {
-        return socket;
-    }
-
-    public void setSocket(Socket socket) {
+    public User(String username, Socket socket) {
+        this.username = username;
         this.socket = socket;
     }
 
+    public String getUsername() { return username; }
+    public Socket getSocket() { return socket; }
+    public void setSocket(Socket socket) { this.socket = socket; }
+
     @Override
     public String toString() {
-        return username + " (" + address + ":" + port + ")";
+        return username;
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (!(obj instanceof User)) return false;
-        User other = (User) obj;
-        return this.username.equalsIgnoreCase(other.username);
+    public boolean equals(Object o) {
+        if (!(o instanceof User)) return false;
+        return username.equalsIgnoreCase(((User)o).username);
     }
 
     @Override

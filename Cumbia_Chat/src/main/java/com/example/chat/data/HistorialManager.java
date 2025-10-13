@@ -8,61 +8,60 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * HistorialManager
- * - Archivo "historial.txt" en la carpeta de ejecución.
- * - Thread-safe mediante sincronización en LOCK.
- * - Formatos legibles para texto y audios.
+ * Historial por chat (grupo o privado).
+ * Los historiales se guardan en archivos: historial_<nombre_chat>.txt
  */
 public class HistorialManager {
-
-    private static final Path HISTORIAL_FILE = Paths.get("historial.txt");
-    private static final String AUDIO_FOLDER = "audios";
-    private static final Object LOCK = new Object();
+    private static final Path ROOT = Paths.get(".");
     private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final Object LOCK = new Object();
 
-    static {
-        try {
-            if (!Files.exists(HISTORIAL_FILE)) {
-                Files.createFile(HISTORIAL_FILE);
-            }
-            Path aud = Paths.get(AUDIO_FOLDER);
-            if (!Files.exists(aud)) Files.createDirectories(aud);
-        } catch (IOException e) {
-            throw new RuntimeException("No se pudo inicializar HistorialManager", e);
-        }
+    private static Path pathForChat(String chatName) {
+        String safe = chatName.replaceAll("\\s+", "_");
+        return ROOT.resolve("historial_" + safe + ".txt");
     }
 
-    private static String formatoLinea(String tipo, String remitente, String destino, String contenido) {
-        return String.format("[%s] [%s] %s -> %s : %s",
-                SDF.format(new Date()), tipo, remitente, destino, contenido);
+    private static void ensureExists(Path p) throws IOException {
+        if (!Files.exists(p)) Files.createFile(p);
     }
 
-    public static void registrarMensajeTexto(String remitente, String destino, String mensaje) {
-        String linea = formatoLinea("TEXT", remitente, destino, mensaje);
-        appendLinea(linea);
-    }
-
-    public static void registrarAudio(String remitente, String destino, String nombreArchivo) {
-        String linea = formatoLinea("AUDIO", remitente, destino, nombreArchivo);
-        appendLinea(linea);
-    }
-
-    private static void appendLinea(String linea) {
+    private static void appendLine(Path p, String line) {
         synchronized (LOCK) {
-            try (BufferedWriter bw = Files.newBufferedWriter(HISTORIAL_FILE, StandardCharsets.UTF_8, StandardOpenOption.APPEND)) {
-                bw.write(linea);
+            try (BufferedWriter bw = Files.newBufferedWriter(p, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+                bw.write(line);
                 bw.newLine();
-                bw.flush();
             } catch (IOException e) {
                 System.err.println("Error escribiendo historial: " + e.getMessage());
             }
         }
     }
 
-    public static String leerHistorialCompleto() {
+    private static String formatLine(String tipo, String remitente, String destino, String contenido) {
+        return String.format("[%s] [%s] %s -> %s : %s", SDF.format(new Date()), tipo, remitente, destino, contenido);
+    }
+
+    // Registrar texto
+    public static void registrarMensajeTexto(String remitente, String chatName, String mensaje) {
+        Path p = pathForChat(chatName);
+        String line = formatLine("TEXT", remitente, chatName, mensaje);
+        appendLine(p, line);
+    }
+
+    // Registrar audio (nombre archivo)
+    public static void registrarAudio(String remitente, String chatName, String audioFileName) {
+        Path p = pathForChat(chatName);
+        String line = formatLine("AUDIO", remitente, chatName, audioFileName);
+        appendLine(p, line);
+    }
+
+    // Leer todo
+    public static String leerHistorialCompleto(String chatName) {
+        Path p = pathForChat(chatName);
         synchronized (LOCK) {
             try {
-                List<String> all = Files.readAllLines(HISTORIAL_FILE, StandardCharsets.UTF_8);
+                if (!Files.exists(p)) return "(Historial vacío)";
+                List<String> all = Files.readAllLines(p, StandardCharsets.UTF_8);
                 if (all.isEmpty()) return "(Historial vacío)";
                 return String.join(System.lineSeparator(), all);
             } catch (IOException e) {
@@ -71,35 +70,40 @@ public class HistorialManager {
         }
     }
 
-    public static String leerHistorial(int n) {
+    // Leer últimas N
+    public static String leerHistorial(String chatName, int n) {
         if (n <= 0) return "(Solicitud inválida)";
+        Path p = pathForChat(chatName);
         synchronized (LOCK) {
             try {
-                List<String> all = Files.readAllLines(HISTORIAL_FILE, StandardCharsets.UTF_8);
+                if (!Files.exists(p)) return "(Historial vacío)";
+                List<String> all = Files.readAllLines(p, StandardCharsets.UTF_8);
                 int size = all.size();
                 if (size == 0) return "(Historial vacío)";
                 int from = Math.max(0, size - n);
-                List<String> sub = all.subList(from, size);
-                return String.join(System.lineSeparator(), sub);
+                return String.join(System.lineSeparator(), all.subList(from, size));
             } catch (IOException e) {
                 return "Error leyendo historial: " + e.getMessage();
             }
         }
     }
 
-    public static String buscarEnHistorial(String termino) {
+    // Buscar
+    public static String buscarEnHistorial(String chatName, String termino) {
         if (termino == null || termino.trim().isEmpty()) return "(Término vacío)";
-        String t = termino.toLowerCase(Locale.ROOT);
+        Path p = pathForChat(chatName);
+        String term = termino.toLowerCase(Locale.ROOT);
         synchronized (LOCK) {
             try {
-                List<String> all = Files.readAllLines(HISTORIAL_FILE, StandardCharsets.UTF_8);
+                if (!Files.exists(p)) return "(Historial vacío)";
+                List<String> all = Files.readAllLines(p, StandardCharsets.UTF_8);
                 List<String> found = all.stream()
-                        .filter(line -> line.toLowerCase(Locale.ROOT).contains(t))
+                        .filter(l -> l.toLowerCase(Locale.ROOT).contains(term))
                         .collect(Collectors.toList());
                 if (found.isEmpty()) return "(No se encontraron coincidencias para: " + termino + ")";
                 return String.join(System.lineSeparator(), found);
             } catch (IOException e) {
-                return "Error buscando en historial: " + e.getMessage();
+                return "Error buscando: " + e.getMessage();
             }
         }
     }
