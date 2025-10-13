@@ -1,244 +1,171 @@
 package com.example.chat.TCP;
 
-import com.example.chat.data.*;
+import com.example.chat.HistorialManager;
+
 import java.io.*;
 import java.net.Socket;
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Semaphore;
 
 /**
- * ClientHandler mejorado:
- * - Maneja mensajes de texto
- * - Recibe y reenvía archivos de audio (header + bytes)
- * - Guarda historial usando HistorialManager
- * - Permite comandos: historial, historial:N, buscar:palabra
+ * ClientHandler: maneja un cliente TCP (texto + envío/recepción de archivos de audio).
+ * Protocolo asumido:
+ * - Mensajes de texto: línea simple enviada con println()
+ * - Audio: primero el cliente envia "AUDIO:<filename>:<length>" con println(),
+ *          luego escribe exactamente <length> bytes en el stream binario.
+ *
+ * Para respuestas multilinea (historial), se envía línea por línea terminando con "END_OF_HISTORY".
  */
 public class ClientHandler implements Runnable {
 
-    private final Socket socket;
-    private final Map<String, ClientHandler> clients;
-    private final HistorialManager historial;
+    private final Socket clientSocket;
     private BufferedReader in;
     private PrintWriter out;
     private DataInputStream dataIn;
     private DataOutputStream dataOut;
-    private String username;
 
-    public ClientHandler(Socket socket, Map<String, ClientHandler> clients, HistorialManager historial) {
-        this.socket = socket;
-        this.clients = clients;
-        this.historial = historial;
-    }
+    private final Set<ClientHandler> clients;
+    private final Semaphore semaphore;
 
-    public ClientHandler(Map<String, ClientHandler> clients, DataInputStream dataIn, DataOutputStream dataOut, HistorialManager historial, BufferedReader in, PrintWriter out, Socket socket, String username) {
+    public ClientHandler(Socket clientSocket, Set<ClientHandler> clients, Semaphore semaphore) {
+        this.clientSocket = clientSocket;
         this.clients = clients;
-        this.dataIn = dataIn;
-        this.dataOut = dataOut;
-        this.historial = historial;
-        this.in = in;
-        this.out = out;
-        this.socket = socket;
-        this.username = username;
-    }
-
-    public ClientHandler(Map<String, ClientHandler> clients, HistorialManager historial, Socket socket) {
-        this.clients = clients;
-        this.historial = historial;
-        this.socket = socket;
+        this.semaphore = semaphore;
     }
 
     @Override
     public void run() {
         try {
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            out = new PrintWriter(socket.getOutputStream(), true);
-            dataIn = new DataInputStream(socket.getInputStream());
-            dataOut = new DataOutputStream(socket.getOutputStream());
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            dataIn = new DataInputStream(clientSocket.getInputStream());
+            dataOut = new DataOutputStream(clientSocket.getOutputStream());
 
-            out.println("=== Bienvenido al CumbiaChat ===");
-            out.println("Ingresa tu nombre de usuario:");
-            username = in.readLine();
+            clients.add(this);
+            out.println("Conectado al servidor de chat.");
 
-            if (username == null || username.trim().isEmpty()) {
-                out.println("❌ Nombre inválido. Conexión cerrada.");
-                socket.close();
-                return;
-            }
-
-            synchronized (clients) {
-                if (clients.containsKey(username)) {
-                    out.println("⚠️ Ya hay un usuario con ese nombre.");
-                    socket.close();
-                    return;
-                }
-                clients.put(username, this);
-            }
-
-            System.out.println("🟢 Usuario conectado: " + username);
-            broadcast("📢 " + username + " se ha unido al chat.");
-
-            // Bucle principal de escucha
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                if (inputLine.equalsIgnoreCase("exit")) {
+            String message;
+            while ((message = in.readLine()) != null) {
+                if (message.startsWith("AUDIO:")) {
+                    // header = AUDIO:filename:filesize
+                    forwardAudioFile(message);
+                } else if (message.equalsIgnoreCase("historial")) {
+                    sendMultilineResponse(HistorialManager.leerHistorialCompleto());
+                } else if (message.startsWith("historial:")) {
+                    String[] parts = message.split(":");
+                    int lineas = 10;
+                    try { lineas = Integer.parseInt(parts[1]); } catch (Exception ignored) {}
+                    sendMultilineResponse(HistorialManager.leerHistorial(lineas));
+                } else if (message.startsWith("buscar:")) {
+                    String termino = message.substring("buscar:".length());
+                    sendMultilineResponse(HistorialManager.buscarEnHistorial(termino));
+                } else if (message.equalsIgnoreCase("exit")) {
                     break;
-                }
-
-                if (inputLine.startsWith("AUDIO:")) {
-                    recibirYReenviarAudio(inputLine);
-                } else if (inputLine.startsWith("historial")) {
-                    manejarHistorial(inputLine);
-                } else if (inputLine.startsWith("buscar:")) {
-                    manejarBusqueda(inputLine);
                 } else {
-                    broadcast("💬 " + username + ": " + inputLine);
-                    historial.registrarMensajeTexto(username, "general", inputLine);
+                    System.out.println("Mensaje recibido: " + message);
+                    sendTextToAll(message);
                 }
             }
-
         } catch (Exception e) {
-            System.err.println("❌ Error con cliente " + username + ": " + e.getMessage());
+            System.out.println("Cliente desconectado o error: " + e.getMessage());
         } finally {
             cleanup();
         }
     }
 
-    /**
-     * Recibe un archivo de audio del cliente y lo reenvía a todos los demás.
-     */
-    private void recibirYReenviarAudio(String header) {
+    private void sendMultilineResponse(String payload) {
+        // Enviar línea por línea y finalizar con END_OF_HISTORY
         try {
-            String[] parts = header.split(":");
-            if (parts.length != 3) return;
+            if (payload == null || payload.isEmpty()) {
+                out.println("(vacío)");
+                out.println("END_OF_HISTORY");
+                return;
+            }
+            BufferedReader br = new BufferedReader(new StringReader(payload));
+            String l;
+            while ((l = br.readLine()) != null) {
+                out.println(l);
+            }
+            out.println("END_OF_HISTORY");
+        } catch (Exception e) {
+            out.println("Error preparando historial: " + e.getMessage());
+            out.println("END_OF_HISTORY");
+        }
+    }
 
-            String fileName = parts[1];
-            long fileSize = Long.parseLong(parts[2]);
+    private void forwardAudioFile(String header) throws IOException {
+        // header = "AUDIO:filename:filesize"
+        String[] parts = header.split(":");
+        if (parts.length != 3) return;
 
-            File received = new File("audios/received_from_" + username + "_" + fileName);
-            received.getParentFile().mkdirs();
+        String fileName = parts[1];
+        long fileSize = Long.parseLong(parts[2]);
 
-            try (FileOutputStream fos = new FileOutputStream(received)) {
-                byte[] buffer = new byte[4096];
-                long totalRead = 0;
-                while (totalRead < fileSize) {
-                    int toRead = (int) Math.min(buffer.length, fileSize - totalRead);
-                    int bytesRead = dataIn.read(buffer, 0, toRead);
-                    if (bytesRead == -1) break;
-                    fos.write(buffer, 0, bytesRead);
-                    totalRead += bytesRead;
+        // Notificar a clientes destino con el encabezado
+        for (ClientHandler other : clients) {
+            if (other != this) {
+                other.out.println(header);
+                other.out.flush();
+            }
+        }
+
+        // Leer los bytes del cliente emisor y reenviarlos inmediatamente a los demas
+        byte[] buffer = new byte[4096];
+        long totalRead = 0;
+        while (totalRead < fileSize) {
+            int toRead = (int) Math.min(buffer.length, fileSize - totalRead);
+            int bytesRead = dataIn.read(buffer, 0, toRead);
+            if (bytesRead == -1) break;
+
+            for (ClientHandler other : clients) {
+                if (other != this) {
+                    synchronized (other) { // sincronizar acceso al dataOut del otro
+                        other.dataOut.write(buffer, 0, bytesRead);
+                    }
                 }
             }
-
-            System.out.println("🎵 Audio recibido de " + username + ": " + received.getName());
-            historial.registrarMensajeAudio(username, "general", received.getName());
-
-            // Reenviar a todos los demás clientes
-            broadcastAudio(received);
-
-        } catch (Exception e) {
-            System.err.println("⚠ Error recibiendo audio de " + username + ": " + e.getMessage());
+            totalRead += bytesRead;
         }
+
+        // Ensures flush on receivers
+        for (ClientHandler other : clients) {
+            if (other != this) {
+                try { other.dataOut.flush(); } catch (Exception ignored) {}
+            }
+        }
+
+        // Registrar en historial (remitente por IP y nombre de archivo)
+        String remitente = "Cliente-" + clientSocket.getInetAddress().getHostAddress();
+        HistorialManager.registrarAudio(remitente, "Grupo", fileName);
     }
 
-    /**
-     * Reenvía un archivo de audio a todos los clientes conectados.
-     */
-    private void broadcastAudio(File audioFile) {
-        synchronized (clients) {
-            for (ClientHandler client : clients.values()) {
-                if (client == this) continue; // No reenviar al mismo
-                try {
-                    client.enviarAudio(audioFile);
-                } catch (Exception e) {
-                    System.err.println("⚠ No se pudo enviar audio a " + client.username + ": " + e.getMessage());
+    private void sendTextToAll(String message) {
+        try {
+            semaphore.acquire();
+            for (ClientHandler client : clients) {
+                if (client != this) {
+                    client.out.println(message);
                 }
             }
+            String remitente = "Cliente-" + clientSocket.getInetAddress().getHostAddress();
+            HistorialManager.registrarMensajeTexto(remitente, "Grupo", message);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            semaphore.release();
         }
     }
 
-    /**
-     * Envía un archivo de audio a este cliente.
-     */
-    private void enviarAudio(File audioFile) throws IOException {
-        if (audioFile == null || !audioFile.exists()) return;
-        out.println("AUDIO:" + audioFile.getName() + ":" + audioFile.length());
-        out.flush();
-
-        try (FileInputStream fis = new FileInputStream(audioFile)) {
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            while ((bytesRead = fis.read(buffer)) != -1) {
-                dataOut.write(buffer, 0, bytesRead);
-            }
-            dataOut.flush();
-        }
-    }
-
-    /**
-     * Maneja los comandos de historial: completo o últimos N.
-     */
-    private void manejarHistorial(String command) {
-        try {
-            if (command.equals("historial")) {
-                out.println(historial.leerHistorialCompleto());
-            } else if (command.startsWith("historial:")) {
-                String nStr = command.split(":")[1];
-                int n = Integer.parseInt(nStr);
-                out.println(historial.leerHistorial(n));
-            }
-            out.println("END_OF_HISTORY");
-        } catch (Exception e) {
-            out.println("⚠ Error leyendo historial: " + e.getMessage());
-            out.println("END_OF_HISTORY");
-        }
-    }
-
-    /**
-     * Maneja el comando "buscar:palabra"
-     */
-    private void manejarBusqueda(String command) {
-        try {
-            String term = command.split(":", 2)[1];
-            out.println(historial.buscarEnHistorial(term));
-            out.println("END_OF_HISTORY");
-        } catch (Exception e) {
-            out.println("⚠ Error en búsqueda: " + e.getMessage());
-            out.println("END_OF_HISTORY");
-        }
-    }
-
-    /**
-     * Envía un mensaje a todos los clientes conectados.
-     */
-    private void broadcast(String msg) {
-        synchronized (clients) {
-            for (ClientHandler client : clients.values()) {
-                client.sendMessage(msg);
-            }
-        }
-    }
-
-    /**
-     * Envía un mensaje a este cliente.
-     */
-    public void sendMessage(String msg) {
-        out.println(msg);
-    }
-
-    /**
-     * Limpia recursos y elimina al usuario del mapa global.
-     */
     private void cleanup() {
+        clients.remove(this);
         try {
-            if (username != null) {
-                clients.remove(username);
-                System.out.println("🔴 Usuario desconectado: " + username);
-                broadcast("📢 " + username + " salió del chat.");
-            }
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
+            if (clientSocket != null && !clientSocket.isClosed())
+                clientSocket.close();
         } catch (IOException e) {
-            System.err.println("Error al cerrar conexión de " + username + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
+
+    // Exponer streams si son necesarios (opcional)
+    public DataOutputStream getDataOut() { return dataOut; }
 }
