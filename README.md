@@ -86,7 +86,7 @@ Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes com
 
 ## 🚀 Compilar el proyecto
 
-Primero, asegúrate de estar en la carpeta raíz del proyecto (donde está el archivo `build.gradle`).
+Primero, asegúrate de estar en la carpeta Cumbia_Chat que está dentro de el repositorio CumbiaChat (donde está el archivo `build.gradle`), es decir:CumbiaChat\Cumbia_Chat
 
 Luego, ejecuta el siguiente comando:
 
