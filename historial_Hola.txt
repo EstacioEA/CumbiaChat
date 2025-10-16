@@ -1,0 +1,2 @@
+[2025-10-15 21:27:41] [AUDIO] Juan -> Hola : Juan_temp_voice.wav
+[2025-10-15 21:28:18] [AUDIO] Liam -> Hola : Liam_temp_voice.wav
