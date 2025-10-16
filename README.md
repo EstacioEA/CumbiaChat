@@ -54,7 +54,7 @@ CumbiaChat utiliza una arquitectura **cliente-servidor multihilo** con los sigui
 
 ## 🧩 Tecnologías utilizadas
 
-- **Lenguaje:** Java 17
+- **Lenguaje:** Java 24
 - **Framework de compilación:** Gradle
 - **Comunicación:** TCP y UDP (Sockets de Java)
 - **Audio:** `javax.sound.sampled`
