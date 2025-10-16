@@ -103,7 +103,7 @@ public class Client {
             System.out.println();
             System.out.println("En llamada de voz");
             System.out.println("1) Colgar");
-            System.out.print("Elige: ");
+            System.out.println("Elige: ");
             System.out.flush();
             
             String choice = stdin.readLine();
