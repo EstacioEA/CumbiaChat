@@ -138,7 +138,7 @@ public class ClientHandler implements Runnable {
             out.println("=== Grupo: " + groupName + " ===");
             out.println("1) Enviar mensaje de texto");
             out.println("2) Enviar nota de voz (archivo)");
-            out.println("3) Escuchar ultimo audio del grupo (si hay)");
+            out.println("3) Ver historial y escuchar audio");
             out.println("4) Realizar/Unirse a llamada (voz en tiempo real)");
             out.println("5) Salir al menu principal");
             out.println("Elige: ");

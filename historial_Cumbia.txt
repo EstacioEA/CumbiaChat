@@ -7,3 +7,4 @@
 [2025-10-15 21:26:01] [TEXT] Juan -> Cumbia : Hola
 [2025-10-15 21:37:14] [AUDIO] Alejandro -> Cumbia : Alejandro_temp_voice.wav
 [2025-10-15 21:39:37] [AUDIO] Juan -> Cumbia : Juan_temp_voice.wav
+[2025-10-15 21:53:44] [AUDIO] Juan -> Cumbia : Juan_temp_voice.wav
