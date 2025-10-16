@@ -7,7 +7,7 @@ El proyecto combina los protocolos **TCP** y **UDP** para optimizar el rendimien
 
 ## 👥 Equipo de desarrollo
 
-- **Jose Valdez**
+- **Jose Valdes**
 - **Juan Diego Balanta**
 - **Edwar Andres Estacio**
 
