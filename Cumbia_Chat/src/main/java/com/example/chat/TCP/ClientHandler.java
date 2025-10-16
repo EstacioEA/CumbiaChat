@@ -53,7 +53,7 @@ public class ClientHandler implements Runnable {
 
             // Login
             out.println("=== Bienvenido a CumbiaChat ===");
-            out.print("Ingresa tu nombre de usuario: ");
+            out.println("Ingresa tu nombre de usuario: ");
             out.flush();
             username = in.readLine();
             if (username == null || username.trim().isEmpty()) { closeSilently(); return; }
@@ -84,7 +84,7 @@ public class ClientHandler implements Runnable {
                     case "2" -> privateFlow();
                     case "3" -> showChats();
                     case "4" -> { out.println("exit"); closeSilently(); return; }
-                    default -> out.println("⚠️ Opción inválida.");
+                    default -> out.println(" Opción inválida.");
                 }
             }
 
@@ -101,7 +101,7 @@ public class ClientHandler implements Runnable {
         out.println("2) Conectarme con un usuario específico");
         out.println("3) Ver chats disponibles");
         out.println("4) Salir");
-        out.print("Elige: ");
+        out.println("Elige: ");
         out.flush();
     }
 
@@ -112,39 +112,40 @@ public class ClientHandler implements Runnable {
         else out.println("Grupos existentes: " + groups.keySet());
 
         out.println("¿Deseas (1) Crear grupo o (2) Unirte a uno existente?");
-        out.print("Elige: ");
+        out.println("Elige: ");
         out.flush();
         String choice = in.readLine();
         if (choice == null) return;
 
         String groupName;
         if ("1".equals(choice)) {
-            out.print("Nombre del nuevo grupo: ");
+            out.println("Nombre del nuevo grupo: ");
             out.flush();
             groupName = in.readLine();
             if (groupName == null || groupName.trim().isEmpty()) { out.println("Nombre inválido."); return; }
-            if (Server.createGroup(groupName, new User(username))) out.println("✅ Grupo creado: " + groupName);
-            else { out.println("⚠️ Ya existe un grupo con ese nombre."); return; }
+            if (Server.createGroup(groupName, new User(username))) out.println(" Grupo creado: " + groupName);
+            else { out.println(" Ya existe un grupo con ese nombre."); return; }
         } else if ("2".equals(choice)) {
-            out.print("Nombre del grupo a unirte: ");
+            out.println("Nombre del grupo a unirte: ");
             out.flush();
             groupName = in.readLine();
-            if (!Server.joinGroup(groupName, new User(username))) { out.println("⚠️ Grupo no existe."); return; }
-            out.println("✅ Te uniste al grupo: " + groupName);
+            if (!Server.joinGroup(groupName, new User(username))) { out.println(" Grupo no existe."); return; }
+            out.println(" Te uniste al grupo: " + groupName);
         } else { out.println("Opción inválida."); return; }
 
         // Now inside group context: show group menu
         groupMenu(groupName);
     }
 
-    private void groupMenu(String groupName) throws IOException {
+   private void groupMenu(String groupName) throws IOException {
+    while (true) {  // <-- AGREGAR ESTE LOOP
         out.println("\n=== Grupo: " + groupName + " ===");
         out.println("1) Enviar mensaje de texto");
         out.println("2) Enviar nota de voz (archivo)");
         out.println("3) Escuchar último audio del grupo (si hay)");
         out.println("4) Realizar/Unirse a llamada (voz en tiempo real)");
         out.println("5) Salir al menú principal");
-        out.print("Elige: ");
+        out.println("Elige: ");
         out.flush();
 
         String opt = in.readLine();
@@ -152,7 +153,7 @@ public class ClientHandler implements Runnable {
 
         switch (opt) {
             case "1" -> {
-                out.print("Escribe mensaje: ");
+                out.println("Escribe mensaje: ");
                 out.flush();
                 String msg = in.readLine();
                 if (msg != null) {
@@ -160,7 +161,7 @@ public class ClientHandler implements Runnable {
                     HistorialManager.registrarMensajeTexto(username, groupName, msg);
                 }
             }
-            case "2" -> { // receive file via existing TCP audio protocol: header "AUDIO:filename:filesize:GROUP:groupName"
+            case "2" -> {
                 out.println("Envíe ahora el header AUDIO:<filename>:<filesize>:" + "GROUP:" + groupName);
                 out.flush();
                 String header = in.readLine();
@@ -173,39 +174,38 @@ public class ClientHandler implements Runnable {
                 out.println(hist);
                 out.println("END_OF_HISTORY");
             }
-            case "4" -> { // voice room: start or request port and then client will start UDP client
+            case "4" -> {
                 int port = Server.getVoiceRoomPort(groupName);
                 if (port == -1) {
-                    // start room
                     int p = Server.startVoiceRoom(groupName);
                     if (p > 0) out.println("VOICE_PORT:" + p);
                     else out.println("VOICE_ERR");
                 } else {
                     out.println("VOICE_PORT:" + port);
                 }
-                out.print("Si deseas unirte a la sala, envía VOICE_JOIN:<groupName>:<tuUdpPort> ahora: ");
+                out.println("Si deseas unirte a la sala, envía VOICE_JOIN:<groupName>:<tuUdpPort> ahora: ");
                 out.flush();
                 String line = in.readLine();
                 if (line != null && line.startsWith("VOICE_JOIN:")) {
-                    // format VOICE_JOIN:groupName:localUdpPort
                     String[] parts = line.split(":");
                     if (parts.length >= 3) {
                         int clientUdpPort = Integer.parseInt(parts[2]);
                         Server.registerVoiceParticipant(groupName, username, clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
-                        out.println("✅ Registrado en sala de voz. Esperando audio UDP...");
+                        out.println(" Registrado en sala de voz. Esperando audio UDP...");
                     } else out.println("Formato VOICE_JOIN inválido.");
                 }
             }
-            case "5" -> { /* return to main menu */ }
-            default -> out.println("Opción inválida.");
+            case "5" -> { return; }  // <-- SALIR DEL LOOP AQUÍ
+            default -> out.println(" Opción inválida.");
         }
     }
+}
 
     // ---------- private chat ----------
     private void privateFlow() throws IOException {
         out.println("\n=== CHAT PRIVADO ===");
         out.println("Usuarios conectados: " + Server.getActiveUsers());
-        out.print("Usuario destino: ");
+        out.println("Usuario destino: ");
         out.flush();
         String target = in.readLine();
         if (target == null || target.trim().isEmpty()) { out.println("Nombre inválido."); return; }
@@ -217,14 +217,14 @@ public class ClientHandler implements Runnable {
         out.println("3) Escuchar último audio privado");
         out.println("4) Iniciar llamada privada (voz)");
         out.println("5) Volver");
-        out.print("Elige: ");
+        out.println("Elige: ");
         out.flush();
 
         String opt = in.readLine();
         if (opt == null) return;
         switch (opt) {
             case "1" -> {
-                out.print("Mensaje: "); out.flush();
+                out.println("Mensaje: "); out.flush();
                 String msg = in.readLine();
                 if (msg != null) {
                     Server.sendPrivateMessage(username, target, msg);
@@ -252,7 +252,7 @@ public class ClientHandler implements Runnable {
                     else out.println("VOICE_ERR");
                 } else out.println("VOICE_PORT:" + port);
 
-                out.print("Si deseas unirte a la sala, envía VOICE_JOIN:" + room + ":<tuUdpPort> ahora: ");
+                out.println("Si deseas unirte a la sala, envía VOICE_JOIN:" + room + ":<tuUdpPort> ahora: ");
                 out.flush();
                 String line = in.readLine();
                 if (line != null && line.startsWith("VOICE_JOIN:")) {
