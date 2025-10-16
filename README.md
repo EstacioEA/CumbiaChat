@@ -76,7 +76,7 @@ Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes com
 
 | Requisito | Versión mínima | Verificar instalación |
 |------------|----------------|------------------------|
-| **Java JDK** | 17 o superior | `java -version` |
+| **Java JDK** | 22 o superior | `java -version` |
 | **Gradle** | (Opcional, el wrapper está incluido) | `gradle -v` |
 | **Terminal / Consola** | Cualquiera (CMD, PowerShell, bash, etc.) | — |
 
