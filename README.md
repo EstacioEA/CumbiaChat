@@ -126,6 +126,11 @@ Una vez conectado, podrás:
 
 Cuando ejecutas un **cliente**, se te mostrará un menú con opciones como:
 
+=== MENU PRINCIPAL ===
+1) Entrar a chat grupal
+2) Conectarme con un usuario especifico
+3) Ver chats disponibles
+4) Salir
 
 
 Selecciona la opción deseada escribiendo el número correspondiente y presionando **Enter**.
