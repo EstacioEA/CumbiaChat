@@ -17,6 +17,7 @@ public class ClientHandler implements Runnable {
     private BufferedReader in;
     private PrintWriter out;
     private DataInputStream dataIn;
+    private DataOutputStream dataOut;
 
     private final Map<String, ClientHandler> connectedUsers;
     private final Map<String, Group> groups;
@@ -41,6 +42,7 @@ public class ClientHandler implements Runnable {
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             out = new PrintWriter(clientSocket.getOutputStream(), true);
             dataIn = new DataInputStream(clientSocket.getInputStream());
+            dataOut = new DataOutputStream(clientSocket.getOutputStream());
 
             // Login
             out.println("=== Bienvenido a CumbiaChat ===");
@@ -161,7 +163,7 @@ public class ClientHandler implements Runnable {
                 case "3" -> {
                     String hist = HistorialManager.leerHistorialCompleto(groupName);
                     out.println(hist);
-                    out.println("END_OF_HISTORY");
+                    playAudioMenuAndSend();
                 }
                 case "4" -> {
                     int port = Server.getVoiceRoomPort(groupName);
@@ -274,8 +276,9 @@ public class ClientHandler implements Runnable {
             }
             case "3" -> {
                 String chatName = "Privado_" + target + "_" + username;
-                out.println(HistorialManager.leerHistorialCompleto(chatName));
-                out.println("END_OF_HISTORY");
+                String hist = HistorialManager.leerHistorialCompleto(chatName);
+                out.println(hist);
+                playAudioMenuAndSend();
             }
             case "4" -> {
                 String room = "PRIV_" + username + "_" + target;
@@ -347,6 +350,55 @@ public class ClientHandler implements Runnable {
 
         } catch (Exception e) {
             out.println("Error procesando audio: " + e.getMessage());
+        }
+    }
+
+    private void playAudioMenuAndSend() throws IOException {
+        out.println();
+        out.println("Archivos de audio disponibles:");
+        
+        File audioDir = new File("audios");
+        File[] audioFiles = audioDir.listFiles((dir, name) -> name.endsWith(".wav"));
+        
+        if (audioFiles == null || audioFiles.length == 0) {
+            out.println("No hay archivos de audio.");
+            return;
+        }
+        
+        for (int i = 0; i < audioFiles.length; i++) {
+            out.println((i + 1) + ") " + audioFiles[i].getName());
+        }
+        
+        out.println("Selecciona numero para reproducir (0 para salir): ");
+        out.flush();
+        
+        String choice = in.readLine();
+        if (choice == null || choice.equals("0")) return;
+        
+        try {
+            int index = Integer.parseInt(choice) - 1;
+            if (index >= 0 && index < audioFiles.length) {
+                File selectedFile = audioFiles[index];
+                long fileSize = selectedFile.length();
+                
+                out.println("AUDIO_FILE:" + selectedFile.getName() + ":" + fileSize);
+                out.flush();
+                
+                try (FileInputStream fis = new FileInputStream(selectedFile)) {
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    while ((bytesRead = fis.read(buffer)) != -1) {
+                        dataOut.write(buffer, 0, bytesRead);
+                    }
+                    dataOut.flush();
+                }
+                
+                out.println("Audio enviado al cliente.");
+            } else {
+                out.println("Opcion invalida.");
+            }
+        } catch (NumberFormatException e) {
+            out.println("Entrada invalida.");
         }
     }
 
