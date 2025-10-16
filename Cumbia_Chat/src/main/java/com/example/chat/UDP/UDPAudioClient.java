@@ -1,7 +1,5 @@
 package com.example.chat.UDP;
 
-import com.example.chat.audio.AudioPlayer;
-
 import javax.sound.sampled.*;
 import java.io.*;
 import java.net.*;
@@ -10,9 +8,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * UDPAudioClient: envía audio del micrófono por UDP al serverVoiceHost:serverVoicePort
  * y al mismo tiempo escucha en localPort los paquetes UDP entrantes y los reproduce.
- *
- * NOTA: si tu entorno no permite acceso al micrófono o las dependencias de audio,
- * puede no funcionar en algunos entornos remotos. En Windows con JDK correcto funciona.
  */
 public class UDPAudioClient {
     private final int localPort;
@@ -46,32 +41,69 @@ public class UDPAudioClient {
 
     public void stop() {
         running.set(false);
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         if (socket != null && !socket.isClosed()) socket.close();
     }
 
     private void startReceiver() {
         receiverThread = new Thread(() -> {
+            SourceDataLine speakers = null;
             try {
                 byte[] buf = new byte[4096];
                 DatagramPacket pkt = new DatagramPacket(buf, buf.length);
-                // prepare audio playback line
+                
                 DataLine.Info infoOut = new DataLine.Info(SourceDataLine.class, format);
-                SourceDataLine speakers = (SourceDataLine) AudioSystem.getLine(infoOut);
+                if (!AudioSystem.isLineSupported(infoOut)) {
+                    System.err.println("SourceDataLine no soportado para el formato");
+                    return;
+                }
+                
+                speakers = (SourceDataLine) AudioSystem.getLine(infoOut);
                 speakers.open(format);
                 speakers.start();
+                System.out.println("SourceDataLine abierto y iniciado para reproduccion");
 
+                long packetsReceived = 0;
                 while (running.get()) {
                     try {
                         socket.receive(pkt);
+                        packetsReceived++;
+                        if (packetsReceived % 100 == 0) {
+                            System.out.println("Paquetes recibidos: " + packetsReceived);
+                        }
                         speakers.write(pkt.getData(), 0, pkt.getLength());
                     } catch (SocketException se) {
+                        if (running.get()) {
+                            System.err.println("SocketException en receiver: " + se.getMessage());
+                        }
                         break;
                     }
                 }
-                speakers.drain();
-                speakers.close();
-            } catch (LineUnavailableException | IOException e) {
+                
+                System.out.println("Receiver thread terminando. Paquetes recibidos totales: " + packetsReceived);
+                if (speakers != null) {
+                    speakers.drain();
+                    speakers.stop();
+                    speakers.close();
+                }
+            } catch (LineUnavailableException e) {
+                System.err.println("LineUnavailableException: " + e.getMessage());
                 e.printStackTrace();
+            } catch (IOException e) {
+                System.err.println("IOException en receiver: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                if (speakers != null) {
+                    try {
+                        speakers.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }, "udp-audio-receiver");
         receiverThread.setDaemon(true);
@@ -86,17 +118,29 @@ public class UDPAudioClient {
                 mic = (TargetDataLine) AudioSystem.getLine(info);
                 mic.open(format);
                 mic.start();
+                System.out.println("Microfono abierto y activo");
 
                 byte[] buffer = new byte[2048];
                 InetAddress serverAddr = InetAddress.getByName(serverHost);
+                long packetsSent = 0;
+                
                 while (running.get()) {
                     int read = mic.read(buffer, 0, buffer.length);
                     if (read > 0) {
                         DatagramPacket pkt = new DatagramPacket(buffer, read, serverAddr, serverPort);
                         socket.send(pkt);
+                        packetsSent++;
+                        if (packetsSent % 100 == 0) {
+                            System.out.println("Paquetes enviados: " + packetsSent);
+                        }
                     }
                 }
-            } catch (LineUnavailableException | IOException e) {
+                System.out.println("Sender thread terminando. Paquetes enviados totales: " + packetsSent);
+            } catch (LineUnavailableException e) {
+                System.err.println("LineUnavailableException (mic): " + e.getMessage());
+                e.printStackTrace();
+            } catch (IOException e) {
+                System.err.println("IOException en sender: " + e.getMessage());
                 e.printStackTrace();
             } finally {
                 if (mic != null) {

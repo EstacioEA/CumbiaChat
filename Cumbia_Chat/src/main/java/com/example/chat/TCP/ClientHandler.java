@@ -166,29 +166,47 @@ public class ClientHandler implements Runnable {
                     playAudioMenuAndSend();
                 }
                 case "4" -> {
-                    int port = Server.getVoiceRoomPort(groupName);
-                    if (port == -1) {
-                        int p = Server.startVoiceRoom(groupName);
-                        if (p > 0) out.println("VOICE_PORT:" + p);
-                        else out.println("VOICE_ERR");
-                    } else {
-                        out.println("VOICE_PORT:" + port);
-                    }
-                    out.println("Si deseas unirte a la sala, envia VOICE_JOIN:<groupName>:<tuUdpPort> ahora: ");
-                    out.flush();
-                    String line = in.readLine();
-                    if (line != null && line.startsWith("VOICE_JOIN:")) {
-                        String[] parts = line.split(":");
-                        if (parts.length >= 3) {
-                            int clientUdpPort = Integer.parseInt(parts[2]);
-                            Server.registerVoiceParticipant(groupName, username, clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
-                            out.println("Registrado en sala de voz. Esperando audio UDP...");
-                        } else out.println("Formato VOICE_JOIN invalido.");
-                    }
+                    handleGroupVoiceCall(groupName);
                 }
                 case "5" -> { return; }
                 default -> out.println("Opcion invalida.");
             }
+        }
+    }
+
+    private void handleGroupVoiceCall(String groupName) throws IOException {
+        int port = Server.getVoiceRoomPort(groupName);
+        if (port == -1) {
+            int p = Server.startVoiceRoom(groupName);
+            if (p <= 0) {
+                out.println("Error al crear sala de voz.");
+                return;
+            }
+            port = p;
+        }
+        
+        out.println("Entrando a llamada de voz...");
+        out.println("VOICE_PORT:" + port + ":" + groupName);
+        out.flush();
+        
+        String line = in.readLine();
+        if (line != null && line.startsWith("VOICE_JOIN:")) {
+            String[] parts = line.split(":");
+            if (parts.length >= 3) {
+                try {
+                    int clientUdpPort = Integer.parseInt(parts[2]);
+                    Server.registerVoiceParticipant(groupName, username, 
+                        clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
+                    System.out.println("Participante " + username + " registrado en sala de voz");
+                } catch (NumberFormatException e) {
+                    out.println("Error: puerto UDP invalido");
+                }
+            }
+        }
+        
+        line = in.readLine();
+        if (line != null && line.startsWith("VOICE_HANGUP:")) {
+            Server.stopVoiceRoom(groupName);
         }
     }
 
@@ -281,27 +299,46 @@ public class ClientHandler implements Runnable {
                 playAudioMenuAndSend();
             }
             case "4" -> {
-                String room = "PRIV_" + username + "_" + target;
-                int port = Server.getVoiceRoomPort(room);
-                if (port == -1) {
-                    int p = Server.startVoiceRoom(room);
-                    if (p > 0) out.println("VOICE_PORT:" + p);
-                    else out.println("VOICE_ERR");
-                } else out.println("VOICE_PORT:" + port);
-
-                out.println("Si deseas unirte a la sala, envia VOICE_JOIN:" + room + ":<tuUdpPort> ahora: ");
-                out.flush();
-                String line = in.readLine();
-                if (line != null && line.startsWith("VOICE_JOIN:")) {
-                    String[] parts = line.split(":");
-                    if (parts.length >= 3) {
-                        int clientUdpPort = Integer.parseInt(parts[2]);
-                        Server.registerVoiceParticipant(room, username, clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
-                        out.println("Registrado en sala de voz privada.");
-                    } else out.println("Formato VOICE_JOIN invalido.");
-                }
+                handlePrivateVoiceCall(target);
             }
             default -> out.println("Opcion invalida.");
+        }
+    }
+
+    private void handlePrivateVoiceCall(String target) throws IOException {
+        String room = "PRIV_" + username + "_" + target;
+        int port = Server.getVoiceRoomPort(room);
+        if (port == -1) {
+            int p = Server.startVoiceRoom(room);
+            if (p <= 0) {
+                out.println("Error al crear sala de voz privada.");
+                return;
+            }
+            port = p;
+        }
+        
+        out.println("Iniciando llamada privada con " + target + "...");
+        out.println("VOICE_PORT:" + port + ":" + room);
+        out.flush();
+        
+        String line = in.readLine();
+        if (line != null && line.startsWith("VOICE_JOIN:")) {
+            String[] parts = line.split(":");
+            if (parts.length >= 3) {
+                try {
+                    int clientUdpPort = Integer.parseInt(parts[2]);
+                    Server.registerVoiceParticipant(room, username, 
+                        clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
+                    System.out.println("Participante " + username + " registrado en llamada privada");
+                } catch (NumberFormatException e) {
+                    out.println("Error: puerto UDP invalido");
+                }
+            }
+        }
+        
+        line = in.readLine();
+        if (line != null && line.startsWith("VOICE_HANGUP:")) {
+            Server.stopVoiceRoom(room);
         }
     }
 

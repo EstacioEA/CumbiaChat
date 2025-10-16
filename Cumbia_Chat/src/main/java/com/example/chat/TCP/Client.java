@@ -5,6 +5,7 @@ import com.example.chat.audio.AudioRecorder;
 import com.example.chat.UDP.UDPAudioClient;
 
 import java.io.*;
+import java.net.ServerSocket;
 import java.net.Socket;
 
 /**
@@ -15,6 +16,8 @@ public class Client {
     private static final int PORT = 12345;
     private static final String AUDIO_DIR = "audios";
     private static final String TEMP_FILE = AUDIO_DIR + "/temp_voice.wav";
+    
+    private UDPAudioClient currentUdpClient = null;
 
     public static void main(String[] args) {
         new Client().start();
@@ -32,30 +35,30 @@ public class Client {
 
             new File(AUDIO_DIR).mkdirs();
 
-            // Loop principal: leer del servidor de forma sinconica
             String line;
             while ((line = serverIn.readLine()) != null) {
                 System.out.print(line);
 
-                // Si el servidor envia un archivo de audio
                 if (line.startsWith("AUDIO_FILE:")) {
                     handleReceiveAudio(line, dataIn);
                     continue;
                 }
 
-                // Si el servidor dice que esta grabando, iniciar grabacion automatica
+                if (line.startsWith("VOICE_PORT:")) {
+                    handleVoiceCallAuto(line, serverOut, stdin);
+                    continue;
+                }
+
                 if (line.contains("Grabando...")) {
                     handleServerRecording(stdin, serverOut, dataOut);
                     continue;
                 }
 
-                // Si el servidor pide input (termina con ": " o contiene "Elige:"), leer del usuario
                 if (line.endsWith(": ") || line.endsWith("? ") || line.contains("Elige:")) {
                     String input = stdin.readLine();
                     if (input == null) break;
                     input = input.trim();
 
-                    // Manejar comandos especiales del cliente
                     if (input.equalsIgnoreCase("/voicefile")) {
                         handleVoiceFile(stdin, serverOut, dataOut);
                         continue;
@@ -66,16 +69,63 @@ public class Client {
                         continue;
                     }
 
-                    // Enviar respuesta al servidor
                     serverOut.println(input);
                 } else {
-                    // Si no es un prompt, agregar salto de linea despues de imprimir
                     System.out.println();
                 }
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void handleVoiceCallAuto(String header, PrintWriter serverOut, BufferedReader stdin) {
+        try {
+            String[] parts = header.split(":");
+            if (parts.length < 3) {
+                System.out.println("Header de voz invalido.");
+                return;
+            }
+
+            int voicePort = Integer.parseInt(parts[1]);
+            String roomName = parts[2];
+
+            System.out.println("\nUniendo a sala de voz...");
+
+            int localUdpPort = findAvailablePort();
+            
+            currentUdpClient = new UDPAudioClient(localUdpPort, SERVER, voicePort);
+            currentUdpClient.start();
+
+            serverOut.println("VOICE_JOIN:" + roomName + ":" + localUdpPort);
+            System.out.println("Conectado a llamada. Puerto local: " + localUdpPort);
+            System.out.println();
+            System.out.println("En llamada de voz");
+            System.out.println("1) Colgar");
+            System.out.print("Elige: ");
+            System.out.flush();
+            
+            String choice = stdin.readLine();
+            if (choice != null && choice.trim().equals("1")) {
+                serverOut.println("VOICE_HANGUP:" + roomName);
+                if (currentUdpClient != null) {
+                    currentUdpClient.stop();
+                    currentUdpClient = null;
+                }
+                System.out.println("Llamada finalizada.");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error uniendo a llamada de voz: " + e.getMessage());
+        }
+    }
+
+    private int findAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            return 5000;
         }
     }
 
@@ -105,9 +155,8 @@ public class Client {
                 }
             }
 
-            System.out.println("\nReproduciendo: " + filename);
+            System.out.println();
             AudioPlayer.playAudio(receivedFile.getAbsolutePath());
-            System.out.println("Reproduccion finalizada.");
 
         } catch (Exception e) {
             System.out.println("Error recibiendo audio: " + e.getMessage());
@@ -120,7 +169,7 @@ public class Client {
         AudioRecorder rec = new AudioRecorder();
         rec.startRecording();
         
-        stdin.readLine(); // Esperar a que presione ENTER
+        stdin.readLine();
         rec.stopRecording(TEMP_FILE);
         
         File f = new File(TEMP_FILE);
@@ -147,7 +196,7 @@ public class Client {
         System.out.println("Grabando nota de voz... presiona ENTER para detener.");
         AudioRecorder rec = new AudioRecorder();
         rec.startRecording();
-        stdin.readLine(); // esperar
+        stdin.readLine();
         rec.stopRecording(TEMP_FILE);
 
         File f = new File(TEMP_FILE);
