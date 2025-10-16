@@ -61,5 +61,79 @@ CumbiaChat utiliza una arquitectura **cliente-servidor multihilo** con los sigui
 
 ---
 
-## 🚀 Ejecución del proyecto
 
+# 🕺 Cumbia Chat - Guía de Ejecución
+
+## 📋 Descripción general
+**Cumbia Chat** es una aplicación de mensajería simple desarrollada en **Java** que permite la comunicación entre clientes y un servidor utilizando los protocolos **TCP** y **UDP**.  
+El proyecto está configurado con **Gradle** y se puede ejecutar directamente desde la línea de comandos sin necesidad de un IDE.
+
+---
+
+## ⚙️ Requisitos previos
+
+Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes componentes:
+
+| Requisito | Versión mínima | Verificar instalación |
+|------------|----------------|------------------------|
+| **Java JDK** | 17 o superior | `java -version` |
+| **Gradle** | (Opcional, el wrapper está incluido) | `gradle -v` |
+| **Terminal / Consola** | Cualquiera (CMD, PowerShell, bash, etc.) | — |
+
+> 💡 El proyecto incluye el **Gradle Wrapper**, así que no necesitas tener Gradle instalado globalmente.
+
+---
+
+## 🚀 Compilar el proyecto
+
+Primero, asegúrate de estar en la carpeta raíz del proyecto (donde está el archivo `build.gradle`).
+
+Luego, ejecuta el siguiente comando:
+
+```bash
+.\gradlew clean build
+```
+Esto limpiará compilaciones anteriores y generará los archivos `.class` en la carpeta `build/classes/java/main`
+
+## Ejecución del proyecto
+
+### Servidor TCP
+
+Para iniciar el **servidor TCP**, ejecuta:
+
+```bash
+java -cp build/classes/java/main com.example.chat.TCP.Server
+```
+
+Por defecto, el servidor se ejecuta en el puerto 5000 y espera conexiones de los clientes TCP.
+
+### Cliente TCP
+
+Para conectar un **cliente TCP** al servidor, abre **otra terminal** y ejecuta (puedes abrir **varias terminales** para conectar **diferentes clientes**):
+
+```bash
+java -cp build/classes/java/main com.example.chat.TCP.Client
+```
+
+El cliente intentará conectarse automáticamente al servidor TCP (localhost:5000).
+
+Una vez conectado, podrás:
+
+- Enviar mensajes al servidor.
+- Ver los mensajes que otros clientes envían.
+
+## Menú principal del cliente
+
+Cuando ejecutas un **cliente**, se te mostrará un menú con opciones como:
+
+
+
+Selecciona la opción deseada escribiendo el número correspondiente y presionando **Enter**.
+
+## Solución de problemas comunes
+
+| Problema                 | Causa probable                                 | Solución                                                             |
+| ------------------------ | ---------------------------------------------- | -------------------------------------------------------------------- |
+| `ClassNotFoundException` | Estás ejecutando el comando desde otra carpeta | Verifica que estés en la raíz del proyecto (`build.gradle` visible). |
+| `Address already in use` | El puerto (5000 o 6000) ya está ocupado        | Cambia el puerto en el código o cierra procesos anteriores.          |
+| `java.net.BindException` | Falta de permisos o error al asignar puerto    | Ejecuta la consola como administrador o usa otro puerto.             |
