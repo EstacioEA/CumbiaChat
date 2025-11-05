@@ -273,9 +273,6 @@ app.post("/api/messages/private/audio", upload.single('audio'), async (req, res)
     }
 });
 
-
-// ... más rutas según necesites
-
 app.listen(PORT, () => {
     console.log(`Servidor API REST CumbiaChat iniciado en http://localhost:${PORT}`);
 });
