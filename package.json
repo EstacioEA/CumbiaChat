@@ -1,0 +1,26 @@
+{
+  "name": "cumbiachat",
+  "version": "1.0.0",
+  "description": "**CumbiaChat** es una aplicación cliente-servidor desarrollada en Java que permite comunicación en tiempo real entre usuarios mediante texto, notas de voz y llamadas.  \r El proyecto combina los protocolos **TCP** y **UDP** para optimizar el rendimiento y la confiabilidad según el tipo de comunicación.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EstacioEA/CumbiaChat.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/EstacioEA/CumbiaChat/issues"
+  },
+  "homepage": "https://github.com/EstacioEA/CumbiaChat#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "multer": "^2.0.2"
+  }
+}

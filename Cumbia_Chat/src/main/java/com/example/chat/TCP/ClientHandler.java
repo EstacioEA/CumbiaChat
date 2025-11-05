@@ -7,9 +7,17 @@ import com.example.chat.data.User;
 import java.io.*;
 import java.net.Socket;
 import java.util.Map;
+import java.util.Set; // Importar Set
+
+// Importar Gson
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 
 /**
  * ClientHandler: maneja comandos TCP y coordina audio/llamadas via Server (UDP).
+ * Modificado para aceptar mensajes JSON como comandos.
  */
 public class ClientHandler implements Runnable {
 
@@ -25,6 +33,8 @@ public class ClientHandler implements Runnable {
 
     private String username;
     private User user;
+
+    private final Gson gson = new Gson(); // Instancia de Gson
 
     public ClientHandler(Socket socket,
                          Map<String, ClientHandler> connectedUsers,
@@ -44,17 +54,49 @@ public class ClientHandler implements Runnable {
             dataIn = new DataInputStream(clientSocket.getInputStream());
             dataOut = new DataOutputStream(clientSocket.getOutputStream());
 
-            // Login
-            out.println("=== Bienvenido a CumbiaChat ===");
-            out.println("Ingresa tu nombre de usuario: ");
+            // --- Nuevo: Login basado en JSON ---
+            out.println("{\"status\":\"need_login\", \"message\":\"Envía un mensaje JSON con {\\\"action\\\":\\\"LOGIN\\\", \\\"data\\\":{\\\"username\\\":\\\"tu_nombre\\\"}}\"}");
             out.flush();
-            username = in.readLine();
-            if (username == null || username.trim().isEmpty()) { closeSilently(); return; }
+
+            String loginLine = in.readLine();
+            if (loginLine == null) {
+                closeSilently();
+                return;
+            }
+
+            JsonObject loginRequest;
+            try {
+                loginRequest = JsonParser.parseString(loginLine).getAsJsonObject();
+            } catch (JsonSyntaxException e) {
+                out.println("{\"status\":\"error\", \"message\":\"Formato de login inválido, se esperaba JSON.\"}");
+                closeSilently();
+                return;
+            }
+
+            if (!"LOGIN".equals(loginRequest.get("action").getAsString())) {
+                out.println("{\"status\":\"error\", \"message\":\"Acción inicial inválida, se esperaba LOGIN.\"}");
+                closeSilently();
+                return;
+            }
+
+            JsonObject loginData = loginRequest.getAsJsonObject("data");
+            if (loginData == null || !loginData.has("username")) {
+                out.println("{\"status\":\"error\", \"message\":\"Datos de login incompletos, falta 'username'.\"}");
+                closeSilently();
+                return;
+            }
+            username = loginData.get("username").getAsString();
+
+            if (username == null || username.trim().isEmpty()) {
+                out.println("{\"status\":\"error\", \"message\":\"Nombre de usuario vacío.\"}");
+                closeSilently();
+                return;
+            }
             username = username.trim();
 
             synchronized (connectedUsers) {
                 if (connectedUsers.containsKey(username)) {
-                    out.println("Usuario ya conectado. Conexion cerrada.");
+                    out.println("{\"status\":\"error\", \"message\":\"Usuario ya conectado.\"}");
                     closeSilently();
                     return;
                 }
@@ -62,387 +104,352 @@ public class ClientHandler implements Runnable {
                 connectedUsers.put(username, this);
             }
 
-            out.println("Conectado como " + username);
+            out.println("{\"status\":\"success\", \"message\":\"Conectado como " + username + "\"}");
             broadcastSystem(username + " se ha unido.");
 
-            // Main menu driven by server prompts
-            while (true) {
-                showMainMenu();
-                String cmd = in.readLine();
-                if (cmd == null) break;
-                cmd = cmd.trim();
 
-                switch (cmd) {
-                    case "1" -> groupFlow();
-                    case "2" -> privateFlow();
-                    case "3" -> showChats();
-                    case "4" -> { out.println("exit"); closeSilently(); return; }
-                    default -> out.println("Opcion invalida.");
+            // --- Bucle principal para mensajes JSON ---
+
+
+            String line;
+            while ((line = in.readLine()) != null) {
+                try {
+                    JsonObject json = JsonParser.parseString(line).getAsJsonObject();
+                    String action = json.get("action").getAsString();
+
+                    switch (action) {
+                        case "GET_ACTIVE_USERS":
+                            handleGetActiveUsers();
+                            break;
+                        case "GET_AVAILABLE_GROUPS":
+                            handleGetAvailableGroups();
+                            break;
+                        case "CREATE_GROUP":
+                            handleCreateGroup(json);
+                            break;
+                        case "JOIN_GROUP":
+                            handleJoinGroup(json);
+                            break;
+                        case "SEND_MESSAGE_TO_GROUP":
+                            handleSendMessageToGroup(json);
+                            break;
+                        case "SEND_PRIVATE_MESSAGE":
+                            handleSendPrivateMessage(json);
+                            break;
+                        // --- Añadir estos casos ---
+                        case "SEND_AUDIO_TO_GROUP":
+                            handleSendAudioToGroup(json);
+                            break;
+                        case "SEND_AUDIO_TO_PRIVATE":
+                            handleSendAudioToPrivate(json);
+                            break;
+
+                        default:
+                            out.println("{\"status\":\"error\", \"message\":\"Acción desconocida: " + action + "\"}");
+                    }
+                } catch (JsonSyntaxException e) {
+                    out.println("{\"status\":\"error\", \"message\":\"Mensaje no es un JSON válido: " + line + "\"}");
+                } catch (Exception e) {
+                    out.println("{\"status\":\"error\", \"message\":\"Error procesando acción: " + e.getMessage() + "\"}");
+                    e.printStackTrace();
                 }
             }
 
         } catch (IOException ex) {
-            // client disconnected or error
+            System.out.println("Cliente " + username + " desconectado inesperadamente.");
         } finally {
             cleanup();
         }
     }
 
-    private void showMainMenu() {
-        out.println();
-        out.println("=== MENU PRINCIPAL ===");
-        out.println("1) Entrar a chat grupal");
-        out.println("2) Conectarme con un usuario especifico");
-        out.println("3) Ver chats disponibles");
-        out.println("4) Salir");
-        out.println("Elige: ");
-        out.flush();
-    }
+    // --- Métodos para manejar acciones JSON ---
 
-    // ---------- group flow ----------
-    private void groupFlow() throws IOException {
-        out.println();
-        out.println("=== CHAT GRUPAL ===");
-        if (groups.isEmpty()) out.println("(No hay grupos creados aun)");
-        else out.println("Grupos existentes: " + groups.keySet());
-
-        out.println("Deseas (1) Crear grupo o (2) Unirte a uno existente?");
-        out.println("Elige: ");
-        out.flush();
-        String choice = in.readLine();
-        if (choice == null) return;
-
-        String groupName;
-        if ("1".equals(choice)) {
-            out.println("Nombre del nuevo grupo: ");
-            out.flush();
-            groupName = in.readLine();
-            if (groupName == null || groupName.trim().isEmpty()) { out.println("Nombre invalido."); return; }
-            if (Server.createGroup(groupName, new User(username))) out.println("Grupo creado: " + groupName);
-            else { out.println("Ya existe un grupo con ese nombre."); return; }
-        } else if ("2".equals(choice)) {
-            out.println("Nombre del grupo a unirte: ");
-            out.flush();
-            groupName = in.readLine();
-            if (!Server.joinGroup(groupName, new User(username))) { out.println("Grupo no existe."); return; }
-            out.println("Te uniste al grupo: " + groupName);
-        } else { out.println("Opcion invalida."); return; }
-
-        // Now inside group context: show group menu
-        groupMenu(groupName);
-    }
-
-    private void groupMenu(String groupName) throws IOException {
-        while (true) {
-            out.println();
-            out.println("=== Grupo: " + groupName + " ===");
-            out.println("1) Enviar mensaje de texto");
-            out.println("2) Enviar nota de voz (archivo)");
-            out.println("3) Ver historial y escuchar audio");
-            out.println("4) Realizar/Unirse a llamada (voz en tiempo real)");
-            out.println("5) Salir al menu principal");
-            out.println("Elige: ");
-            out.flush();
-
-            String opt = in.readLine();
-            if (opt == null) return;
-
-            switch (opt) {
-                case "1" -> {
-                    out.println("Escribe mensaje: ");
-                    out.flush();
-                    String msg = in.readLine();
-                    if (msg != null) {
-                        Server.broadcastToGroup(groupName, msg, username);
-                        HistorialManager.registrarMensajeTexto(username, groupName, msg);
-                    }
-                }
-                case "2" -> {
-                    sendAudioToGroup(groupName);
-                }
-                case "3" -> {
-                    String hist = HistorialManager.leerHistorialCompleto(groupName);
-                    out.println(hist);
-                    playAudioMenuAndSend();
-                }
-                case "4" -> {
-                    handleGroupVoiceCall(groupName);
-                }
-                case "5" -> { return; }
-                default -> out.println("Opcion invalida.");
-            }
-        }
-    }
-
-    private void handleGroupVoiceCall(String groupName) throws IOException {
-        int port = Server.getVoiceRoomPort(groupName);
-        if (port == -1) {
-            int p = Server.startVoiceRoom(groupName);
-            if (p <= 0) {
-                out.println("Error al crear sala de voz.");
-                return;
-            }
-            port = p;
-        }
-        
-        out.println("Entrando a llamada de voz...");
-        out.println("VOICE_PORT:" + port + ":" + groupName);
-        out.flush();
-        
-        String line = in.readLine();
-        if (line != null && line.startsWith("VOICE_JOIN:")) {
-            String[] parts = line.split(":");
-            if (parts.length >= 3) {
-                try {
-                    int clientUdpPort = Integer.parseInt(parts[2]);
-                    Server.registerVoiceParticipant(groupName, username, 
-                        clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
-                    System.out.println("Participante " + username + " registrado en sala de voz");
-                } catch (NumberFormatException e) {
-                    out.println("Error: puerto UDP invalido");
-                }
-            }
-        }
-        
-        line = in.readLine();
-        if (line != null && line.startsWith("VOICE_HANGUP:")) {
-            Server.stopVoiceRoom(groupName);
-        }
-    }
-
-    private void sendAudioToGroup(String groupName) {
+    private void handleGetActiveUsers() {
         try {
-            File audioDir = new File("audios");
-            audioDir.mkdirs();
-
-            out.println("Grabando... presiona ENTER en el cliente para parar");
-            out.flush();
-
-            String header = in.readLine();
-            if (header == null || !header.startsWith("AUDIO:")) {
-                out.println("Error: no se recibio header de audio valido");
-                return;
-            }
-
-            String[] parts = header.split(":");
-            if (parts.length < 3) {
-                out.println("Header invalido");
-                return;
-            }
-
-            String filename = parts[1];
-            long filesize = Long.parseLong(parts[2]);
-
-            File outFile = new File("audios/" + username + "_" + filename);
-            outFile.getParentFile().mkdirs();
-
-            try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                byte[] buffer = new byte[4096];
-                long total = 0;
-                while (total < filesize) {
-                    int toRead = (int) Math.min(buffer.length, filesize - total);
-                    int read = dataIn.read(buffer, 0, toRead);
-                    if (read == -1) break;
-                    fos.write(buffer, 0, read);
-                    total += read;
-                }
-            }
-
-            HistorialManager.registrarAudio(username, groupName, outFile.getName());
-            Server.broadcastToGroup(groupName, "[AUDIO] " + outFile.getName(), username);
-            out.println("Audio recibido y registrado: " + outFile.getName());
-
+            Set<String> users = Server.getActiveUsers();
+            String jsonResponse = gson.toJson(Map.of("status", "success", "data", users));
+            out.println(jsonResponse);
         } catch (Exception e) {
-            out.println("Error procesando audio: " + e.getMessage());
+            String errorResponse = gson.toJson(Map.of("status", "error", "message", e.getMessage()));
+            out.println(errorResponse);
         }
     }
 
-    // ---------- private chat ----------
-    private void privateFlow() throws IOException {
-        out.println();
-        out.println("=== CHAT PRIVADO ===");
-        out.println("Usuarios conectados: " + Server.getActiveUsers());
-        out.println("Usuario destino: ");
-        out.flush();
-        String target = in.readLine();
-        if (target == null || target.trim().isEmpty()) { out.println("Nombre invalido."); return; }
-        if (!Server.getActiveUsers().contains(target)) { out.println("Usuario no conectado."); return; }
-
-        out.println("Opciones:");
-        out.println("1) Enviar mensaje de texto");
-        out.println("2) Enviar nota de voz (archivo)");
-        out.println("3) Escuchar ultimo audio privado");
-        out.println("4) Iniciar llamada privada (voz)");
-        out.println("5) Volver");
-        out.println("Elige: ");
-        out.flush();
-
-        String opt = in.readLine();
-        if (opt == null) return;
-        switch (opt) {
-            case "1" -> {
-                out.println("Mensaje: ");
-                out.flush();
-                String msg = in.readLine();
-                if (msg != null) {
-                    Server.sendPrivateMessage(username, target, msg);
-                    HistorialManager.registrarMensajeTexto(username, "Privado_" + username + "_" + target, msg);
-                }
-            }
-            case "2" -> {
-                sendAudioPrivate(target);
-            }
-            case "3" -> {
-                String chatName = "Privado_" + target + "_" + username;
-                String hist = HistorialManager.leerHistorialCompleto(chatName);
-                out.println(hist);
-                playAudioMenuAndSend();
-            }
-            case "4" -> {
-                handlePrivateVoiceCall(target);
-            }
-            default -> out.println("Opcion invalida.");
-        }
-    }
-
-    private void handlePrivateVoiceCall(String target) throws IOException {
-        String room = "PRIV_" + username + "_" + target;
-        int port = Server.getVoiceRoomPort(room);
-        if (port == -1) {
-            int p = Server.startVoiceRoom(room);
-            if (p <= 0) {
-                out.println("Error al crear sala de voz privada.");
-                return;
-            }
-            port = p;
-        }
-        
-        out.println("Iniciando llamada privada con " + target + "...");
-        out.println("VOICE_PORT:" + port + ":" + room);
-        out.flush();
-        
-        String line = in.readLine();
-        if (line != null && line.startsWith("VOICE_JOIN:")) {
-            String[] parts = line.split(":");
-            if (parts.length >= 3) {
-                try {
-                    int clientUdpPort = Integer.parseInt(parts[2]);
-                    Server.registerVoiceParticipant(room, username, 
-                        clientSocket.getInetAddress().getHostAddress(), clientUdpPort);
-                    System.out.println("Participante " + username + " registrado en llamada privada");
-                } catch (NumberFormatException e) {
-                    out.println("Error: puerto UDP invalido");
-                }
-            }
-        }
-        
-        line = in.readLine();
-        if (line != null && line.startsWith("VOICE_HANGUP:")) {
-            Server.stopVoiceRoom(room);
-        }
-    }
-
-    private void sendAudioPrivate(String target) {
+    private void handleGetAvailableGroups() {
         try {
-            File audioDir = new File("audios");
-            audioDir.mkdirs();
-
-            out.println("Grabando... presiona ENTER en el cliente para parar");
-            out.flush();
-
-            String header = in.readLine();
-            if (header == null || !header.startsWith("AUDIO:")) {
-                out.println("Error: no se recibio header de audio valido");
-                return;
-            }
-
-            String[] parts = header.split(":");
-            if (parts.length < 3) {
-                out.println("Header invalido");
-                return;
-            }
-
-            String filename = parts[1];
-            long filesize = Long.parseLong(parts[2]);
-
-            File outFile = new File("audios/" + username + "_" + filename);
-            outFile.getParentFile().mkdirs();
-
-            try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                byte[] buffer = new byte[4096];
-                long total = 0;
-                while (total < filesize) {
-                    int toRead = (int) Math.min(buffer.length, filesize - total);
-                    int read = dataIn.read(buffer, 0, toRead);
-                    if (read == -1) break;
-                    fos.write(buffer, 0, read);
-                    total += read;
-                }
-            }
-
-            String chatName = "Privado_" + username + "_" + target;
-            HistorialManager.registrarAudio(username, chatName, outFile.getName());
-            Server.sendPrivateMessage(username, target, "[AUDIO] " + outFile.getName());
-            out.println("Audio enviado a " + target + ": " + outFile.getName());
-
+            Set<String> groups = Server.getAvailableGroups();
+            String jsonResponse = gson.toJson(Map.of("status", "success", "data", groups));
+            out.println(jsonResponse);
         } catch (Exception e) {
-            out.println("Error procesando audio: " + e.getMessage());
+            String errorResponse = gson.toJson(Map.of("status", "error", "message", e.getMessage()));
+            out.println(errorResponse);
         }
     }
 
-    private void playAudioMenuAndSend() throws IOException {
-        out.println();
-        out.println("Archivos de audio disponibles:");
-        
-        File audioDir = new File("audios");
-        File[] audioFiles = audioDir.listFiles((dir, name) -> name.endsWith(".wav"));
-        
-        if (audioFiles == null || audioFiles.length == 0) {
-            out.println("No hay archivos de audio.");
-            return;
-        }
-        
-        for (int i = 0; i < audioFiles.length; i++) {
-            out.println((i + 1) + ") " + audioFiles[i].getName());
-        }
-        
-        out.println("Selecciona numero para reproducir (0 para salir): ");
-        out.flush();
-        
-        String choice = in.readLine();
-        if (choice == null || choice.equals("0")) return;
-        
+    private void handleCreateGroup(JsonObject request) {
         try {
-            int index = Integer.parseInt(choice) - 1;
-            if (index >= 0 && index < audioFiles.length) {
-                File selectedFile = audioFiles[index];
-                long fileSize = selectedFile.length();
-                
-                out.println("AUDIO_FILE:" + selectedFile.getName() + ":" + fileSize);
-                out.flush();
-                
-                try (FileInputStream fis = new FileInputStream(selectedFile)) {
-                    byte[] buffer = new byte[4096];
-                    int bytesRead;
-                    while ((bytesRead = fis.read(buffer)) != -1) {
-                        dataOut.write(buffer, 0, bytesRead);
-                    }
-                    dataOut.flush();
-                }
-                
-                out.println("Audio enviado al cliente.");
+            JsonObject data = request.getAsJsonObject("data");
+            if (data == null || !data.has("groupName") || !data.has("creatorUsername")) {
+                out.println("{\"status\":\"error\", \"message\":\"Datos incompletos para CREATE_GROUP.\"}");
+                return;
+            }
+            String groupName = data.get("groupName").getAsString();
+            String creatorUsername = data.get("creatorUsername").getAsString();
+
+            if (!this.username.equals(creatorUsername)) {
+                out.println("{\"status\":\"error\", \"message\":\"No autorizado. El creatorUsername no coincide con el usuario logueado.\"}");
+                return;
+            }
+
+            boolean success = Server.createGroup(groupName, new User(creatorUsername));
+            if (success) {
+                String jsonResponse = gson.toJson(Map.of("status", "success", "message", "Grupo creado exitosamente."));
+                out.println(jsonResponse);
             } else {
-                out.println("Opcion invalida.");
+                String jsonResponse = gson.toJson(Map.of("status", "error", "message", "No se pudo crear el grupo (ya existe?)."));
+                out.println(jsonResponse);
             }
-        } catch (NumberFormatException e) {
-            out.println("Entrada invalida.");
+        } catch (Exception e) {
+            String errorResponse = gson.toJson(Map.of("status", "error", "message", e.getMessage()));
+            out.println(errorResponse);
         }
     }
 
-    private void showChats() {
-        out.println("Grupos: " + Server.getAvailableGroups());
-        out.println("Usuarios: " + Server.getActiveUsers());
+    private void handleJoinGroup(JsonObject request) {
+        try {
+            JsonObject data = request.getAsJsonObject("data");
+            if (data == null || !data.has("groupName") || !data.has("username")) {
+                out.println("{\"status\":\"error\", \"message\":\"Datos incompletos para JOIN_GROUP.\"}");
+                return;
+            }
+            String groupName = data.get("groupName").getAsString();
+            String usernameToJoin = data.get("username").getAsString();
+
+            if (!this.username.equals(usernameToJoin)) {
+                out.println("{\"status\":\"error\", \"message\":\"No autorizado. El username no coincide con el usuario logueado.\"}");
+                return;
+            }
+
+            boolean success = Server.joinGroup(groupName, new User(usernameToJoin));
+            if (success) {
+                String jsonResponse = gson.toJson(Map.of("status", "success", "message", "Usuario se unió al grupo."));
+                out.println(jsonResponse);
+            } else {
+                String jsonResponse = gson.toJson(Map.of("status", "error", "message", "No se pudo unir al grupo (no existe?)."));
+                out.println(jsonResponse);
+            }
+        } catch (Exception e) {
+            String errorResponse = gson.toJson(Map.of("status", "error", "message", e.getMessage()));
+            out.println(errorResponse);
+        }
     }
+
+    private void handleSendMessageToGroup(JsonObject request) {
+        try {
+            JsonObject data = request.getAsJsonObject("data");
+            if (data == null || !data.has("groupName") || !data.has("sender") || !data.has("message")) {
+                out.println("{\"status\":\"error\", \"message\":\"Datos incompletos para SEND_MESSAGE_TO_GROUP.\"}");
+                return;
+            }
+            String groupName = data.get("groupName").getAsString();
+            String sender = data.get("sender").getAsString();
+            String message = data.get("message").getAsString();
+
+            if (!this.username.equals(sender)) {
+                out.println("{\"status\":\"error\", \"message\":\"No autorizado. El sender no coincide con el usuario logueado.\"}");
+                return;
+            }
+
+            Server.broadcastToGroup(groupName, message, sender);
+            HistorialManager.registrarMensajeTexto(sender, groupName, message);
+
+            String jsonResponse = gson.toJson(Map.of("status", "success", "message", "Mensaje enviado al grupo."));
+            out.println(jsonResponse);
+        } catch (Exception e) {
+            String errorResponse = gson.toJson(Map.of("status", "error", "message", e.getMessage()));
+            out.println(errorResponse);
+        }
+    }
+
+    private void handleSendPrivateMessage(JsonObject request) {
+        try {
+            JsonObject data = request.getAsJsonObject("data");
+            if (data == null || !data.has("fromUser") || !data.has("toUser") || !data.has("message")) {
+                out.println("{\"status\":\"error\", \"message\":\"Datos incompletos para SEND_PRIVATE_MESSAGE.\"}");
+                return;
+            }
+            String fromUser = data.get("fromUser").getAsString();
+            String toUser = data.get("toUser").getAsString();
+            String message = data.get("message").getAsString();
+
+            if (!this.username.equals(fromUser)) {
+                out.println("{\"status\":\"error\", \"message\":\"No autorizado. El fromUser no coincide con el usuario logueado.\"}");
+                return;
+            }
+
+            Server.sendPrivateMessage(fromUser, toUser, message);
+            String chatName = "Privado_" + fromUser + "_" + toUser;
+            HistorialManager.registrarMensajeTexto(fromUser, chatName, message);
+
+            String jsonResponse = gson.toJson(Map.of("status", "success", "message", "Mensaje privado enviado."));
+            out.println(jsonResponse);
+        } catch (Exception e) {
+            String errorResponse = gson.toJson(Map.of("status", "error", "message", e.getMessage()));
+            out.println(errorResponse);
+        }
+    }
+
+    // --- Fin de métodos handle ---
+
+
+
+    // --- Métodos para manejar envío de audio via JSON ---
+
+    private void handleSendAudioToGroup(JsonObject request) {
+        try {
+            JsonObject data = request.getAsJsonObject("data");
+            if (data == null || !data.has("groupName") || !data.has("sender") || !data.has("audioFileName") || !data.has("audioData")) {
+                JsonObject errorResponse = new JsonObject();
+                errorResponse.addProperty("status", "error");
+                errorResponse.addProperty("message", "Datos incompletos para SEND_AUDIO_TO_GROUP. Se requiere groupName, sender, audioFileName, y audioData.");
+                out.println(gson.toJson(errorResponse));
+                return;
+            }
+            String groupName = data.get("groupName").getAsString();
+            String sender = data.get("sender").getAsString();
+            String audioFileName = data.get("audioFileName").getAsString();
+            String audioDataBase64 = data.get("audioData").getAsString(); // Asumimos que el audio viene como Base64
+
+            // Validar que el emisor sea el usuario logueado
+            if (!this.username.equals(sender)) {
+                JsonObject errorResponse = new JsonObject();
+                errorResponse.addProperty("status", "error");
+                errorResponse.addProperty("message", "No autorizado. El sender no coincide con el usuario logueado.");
+                out.println(gson.toJson(errorResponse));
+                return;
+            }
+
+            // Decodificar Base64 a bytes
+            byte[] audioBytes;
+            try {
+                audioBytes = java.util.Base64.getDecoder().decode(audioDataBase64);
+            } catch (IllegalArgumentException e) {
+                JsonObject errorResponse = new JsonObject();
+                errorResponse.addProperty("status", "error");
+                errorResponse.addProperty("message", "Error decodificando audio (Base64 inválido).");
+                out.println(gson.toJson(errorResponse));
+                return;
+            }
+
+            // Crear el archivo en la ubicación donde lo espera el código original
+            File audioDir = new File("audios");
+            audioDir.mkdirs();
+            File outFile = new File(audioDir, sender + "_" + audioFileName);
+            outFile.getParentFile().mkdirs();
+
+            // Escribir los bytes decodificados al archivo
+            try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                fos.write(audioBytes);
+            }
+
+            // Registrar en historial (reutilizando la lógica original)
+            HistorialManager.registrarAudio(sender, groupName, outFile.getName());
+
+            // Enviar mensaje de notificación al grupo (reutilizando la lógica original)
+            Server.broadcastToGroup(groupName, "[AUDIO] " + outFile.getName(), sender);
+
+            // Opcional: Enviar el archivo binario a cada cliente del grupo (esto es complejo con TCP y ClientHandler actuales,
+            // ya que ClientHandler no tiene acceso directo a los sockets de otros clientes).
+            // La lógica original lo hace *después* de recibir el header AUDIO:, lo cual no aplica aquí.
+            // Para que el cliente lo reciba, el *cliente receptor* debe solicitarlo explícitamente (como en `playAudioMenuAndSend`).
+            // O se podría implementar un mecanismo de notificación de nuevo archivo disponible (WebSocket, polling, etc.).
+
+            JsonObject response = new JsonObject();
+            response.addProperty("status", "success");
+            response.addProperty("message", "Audio enviado al grupo y registrado.");
+            out.println(gson.toJson(response));
+
+        } catch (Exception e) {
+            JsonObject errorResponse = new JsonObject();
+            errorResponse.addProperty("status", "error");
+            errorResponse.addProperty("message", e.getMessage());
+            out.println(gson.toJson(errorResponse));
+        }
+    }
+
+    private void handleSendAudioToPrivate(JsonObject request) {
+        try {
+            JsonObject data = request.getAsJsonObject("data");
+            if (data == null || !data.has("toUser") || !data.has("fromUser") || !data.has("audioFileName") || !data.has("audioData")) {
+                JsonObject errorResponse = new JsonObject();
+                errorResponse.addProperty("status", "error");
+                errorResponse.addProperty("message", "Datos incompletos para SEND_AUDIO_TO_PRIVATE. Se requiere toUser, fromUser, audioFileName, y audioData.");
+                out.println(gson.toJson(errorResponse));
+                return;
+            }
+            String toUser = data.get("toUser").getAsString();
+            String fromUser = data.get("fromUser").getAsString(); // Debe ser el usuario logueado
+            String audioFileName = data.get("audioFileName").getAsString();
+            String audioDataBase64 = data.get("audioData").getAsString(); // Asumimos que el audio viene como Base64
+
+            // Validar que el emisor sea el usuario logueado
+            if (!this.username.equals(fromUser)) {
+                JsonObject errorResponse = new JsonObject();
+                errorResponse.addProperty("status", "error");
+                errorResponse.addProperty("message", "No autorizado. El fromUser no coincide con el usuario logueado.");
+                out.println(gson.toJson(errorResponse));
+                return;
+            }
+
+            // Decodificar Base64 a bytes
+            byte[] audioBytes;
+            try {
+                audioBytes = java.util.Base64.getDecoder().decode(audioDataBase64);
+            } catch (IllegalArgumentException e) {
+                JsonObject errorResponse = new JsonObject();
+                errorResponse.addProperty("status", "error");
+                errorResponse.addProperty("message", "Error decodificando audio (Base64 inválido).");
+                out.println(gson.toJson(errorResponse));
+                return;
+            }
+
+            // Crear el archivo en la ubicación donde lo espera el código original
+            File audioDir = new File("audios");
+            audioDir.mkdirs();
+            File outFile = new File(audioDir, fromUser + "_" + audioFileName);
+            outFile.getParentFile().mkdirs();
+
+            // Escribir los bytes decodificados al archivo
+            try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                fos.write(audioBytes);
+            }
+
+            // Registrar en historial (reutilizando la lógica original)
+            String chatName = "Privado_" + fromUser + "_" + toUser;
+            HistorialManager.registrarAudio(fromUser, chatName, outFile.getName());
+
+            // Enviar mensaje de notificación al usuario receptor (reutilizando la lógica original)
+            Server.sendPrivateMessage(fromUser, toUser, "[AUDIO] " + outFile.getName());
+
+            // Opcional: Enviar el archivo binario al cliente receptor (ver comentario en handleSendAudioToGroup)
+            // Para que el cliente receptor lo reciba, debe solicitarlo explícitamente.
+
+            JsonObject response = new JsonObject();
+            response.addProperty("status", "success");
+            response.addProperty("message", "Audio enviado en mensaje privado y registrado.");
+            out.println(gson.toJson(response));
+
+        } catch (Exception e) {
+            JsonObject errorResponse = new JsonObject();
+            errorResponse.addProperty("status", "error");
+            errorResponse.addProperty("message", e.getMessage());
+            out.println(gson.toJson(errorResponse));
+        }
+    }
+
+    // --- Fin de métodos para audio ---
+
+
 
     private void broadcastSystem(String msg) {
         synchronized (connectedUsers) {
