@@ -1,0 +1,2 @@
+[2025-10-12 20:02:43] [TEXT] Cliente-127.0.0.1 -> Grupo : Hola
+[2025-10-12 20:03:15] [TEXT] Cliente-127.0.0.1 -> Grupo : Hey

@@ -1,0 +1,2 @@
+[2025-10-15 22:08:57] [TEXT] A -> Privado_A_B : Hola amigo
+[2025-10-15 22:11:06] [AUDIO] A -> Privado_A_B : A_temp_voice.wav

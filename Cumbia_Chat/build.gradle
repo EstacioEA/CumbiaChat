@@ -1,23 +1,33 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.2.5'
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'application'
+    id 'org.springframework.boot' version '3.3.3'
+    id 'io.spring.dependency-management' version '1.1.5'
 }
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 
 java {
-    sourceCompatibility = '17'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(22)
+    }
 }
 
 repositories {
     mavenCentral()
 }
 
-dependencies {
+application {
+    mainClass = 'com.example.chat.TCP.Server'
+}
 
-    // Opcional: si usas Gson
+tasks.register('runClient', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.chat.TCP.Client'
+}
+
+dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
 }
 
