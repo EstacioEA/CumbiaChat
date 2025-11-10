@@ -1,17 +1,21 @@
 package com.example.chat.TCP;
 
-import com.example.chat.data.Group;
-import com.example.chat.data.HistorialManager;
-import com.example.chat.data.User;
-import com.example.chat.UDP.UDPAudioServer;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import com.example.chat.UDP.UDPAudioServer;
+import com.example.chat.data.Group;
+import com.example.chat.data.HistorialManager;
+import com.example.chat.data.User;
 
 /**
  * Servidor TCP principal. Mantiene usuarios conectados, grupos, historial
@@ -37,7 +41,7 @@ public class Server {
             System.out.println("Servidor TCP corriendo en puerto " + PORT);
             while (true) {
                 Socket clientSocket = server.accept();
-                ClientHandler handler = new ClientHandler(clientSocket, connectedUsers, groups, historial);
+                JSONProtocolHandler handler = new JSONProtocolHandler(clientSocket, connectedUsers, groups, historial);
                 pool.submit(handler);
             }
         } catch (IOException e) {

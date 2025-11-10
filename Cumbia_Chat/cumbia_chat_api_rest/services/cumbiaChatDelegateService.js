@@ -3,43 +3,17 @@ const net = require('net');
 
 // Constantes
 const SERVER_HOST = 'localhost';
-const SERVER_PORT = 12345; // El puerto donde escucha tu Server.java
+const SERVER_PORT = 12345;
 
 // Función genérica para enviar un mensaje TCP y esperar una respuesta
-const sendTcpMessage = (messageObject, username) => {
+const sendTcpMessage = (messageObject) => {
     return new Promise((resolve, reject) => {
         const socket = new net.Socket();
 
         socket.connect(SERVER_PORT, SERVER_HOST, () => {
-            if (messageObject.action === 'LOGIN') {
-                socket.write(JSON.stringify(messageObject));
-                socket.write('\n');
-            } else {
-                const loginMessage = {
-                    action: 'LOGIN',
-                    data: {
-                        username: username
-                    }
-                };
-                socket.write(JSON.stringify(loginMessage));
-                socket.write('\n');
-
-                socket.once('data', (data) => {
-                    const loginResponse = data.toString().trim();
-                    try {
-                        const parsedLoginResponse = JSON.parse(loginResponse);
-                        if (parsedLoginResponse.status !== 'success') {
-                            socket.destroy(new Error(`Error en login: ${parsedLoginResponse.message}`));
-                            return;
-                        }
-                        socket.write(JSON.stringify(messageObject));
-                        socket.write('\n');
-                    } catch (e) {
-                        socket.destroy(new Error(`Error parseando respuesta de login: ${e.message}`));
-                        return;
-                    }
-                });
-            }
+            // Enviar el mensaje directamente (sin login previo)
+            socket.write(JSON.stringify(messageObject));
+            socket.write('\n');
         });
 
         socket.once('data', (data) => {
@@ -66,7 +40,7 @@ const sendTcpMessage = (messageObject, username) => {
 
 // --- Funciones de delegación ---
 
-// Función para login (especial, no necesita username en el mensaje, lo recibe como parámetro)
+// Función para login
 const login = (username) => {
     const request = {
         action: 'LOGIN',
@@ -74,52 +48,38 @@ const login = (username) => {
             username: username
         }
     };
-    // Para login, no necesitamos un username previo, así que pasamos null o '' al helper
-    // Mejor lo hacemos directamente aquí:
-    return new Promise((resolve, reject) => {
-        const socket = new net.Socket();
+    return sendTcpMessage(request);
+};
 
-        socket.connect(SERVER_PORT, SERVER_HOST, () => {
-            socket.write(JSON.stringify(request));
-            socket.write('\n');
-        });
-
-        socket.once('data', (data) => {
-            const response = data.toString().trim();
-            try {
-                const parsedResponse = JSON.parse(response);
-                resolve(parsedResponse);
-            } catch (e) {
-                reject(new Error(`Error parseando respuesta del servidor: ${response}`));
-            }
-            socket.end();
-        });
-
-        socket.on('error', (err) => {
-            reject(err);
-            socket.destroy();
-        });
-
-        socket.setTimeout(10000, () => {
-            socket.destroy(new Error('Timeout al esperar respuesta del servidor TCP'));
-        });
-    });
+// Función para logout
+const logout = (username) => {
+    const request = {
+        action: 'LOGOUT',
+        data: {
+            username: username
+        }
+    };
+    return sendTcpMessage(request);
 };
 
 const getActiveUsers = (username) => {
     const request = {
         action: 'GET_ACTIVE_USERS',
-        data: {}
+        data: {
+            username: username // Para tracking, pero no hace login
+        }
     };
-    return sendTcpMessage(request, username);
+    return sendTcpMessage(request);
 };
 
 const getAvailableGroups = (username) => {
     const request = {
         action: 'GET_AVAILABLE_GROUPS',
-        data: {}
+        data: {
+            username: username
+        }
     };
-    return sendTcpMessage(request, username);
+    return sendTcpMessage(request);
 };
 
 const createGroup = (groupName, creatorUsername) => {
@@ -130,7 +90,7 @@ const createGroup = (groupName, creatorUsername) => {
             creatorUsername: creatorUsername
         }
     };
-    return sendTcpMessage(request, creatorUsername);
+    return sendTcpMessage(request);
 };
 
 const joinGroup = (groupName, username) => {
@@ -141,7 +101,7 @@ const joinGroup = (groupName, username) => {
             username: username
         }
     };
-    return sendTcpMessage(request, username);
+    return sendTcpMessage(request);
 };
 
 const sendMessageToGroup = (groupName, sender, message) => {
@@ -153,7 +113,7 @@ const sendMessageToGroup = (groupName, sender, message) => {
             message: message
         }
     };
-    return sendTcpMessage(request, sender);
+    return sendTcpMessage(request);
 };
 
 const sendPrivateMessage = (fromUser, toUser, message) => {
@@ -165,13 +125,10 @@ const sendPrivateMessage = (fromUser, toUser, message) => {
             message: message
         }
     };
-    return sendTcpMessage(request, fromUser);
+    return sendTcpMessage(request);
 };
 
-// --- Nuevas funciones para audio ---
-
 const sendAudioToGroup = (groupName, sender, audioFileName, audioDataBuffer) => {
-    // Convertir el buffer de audio a Base64 para incluirlo en el JSON
     const audioDataBase64 = audioDataBuffer.toString('base64');
     const request = {
         action: 'SEND_AUDIO_TO_GROUP',
@@ -179,14 +136,13 @@ const sendAudioToGroup = (groupName, sender, audioFileName, audioDataBuffer) => 
             groupName: groupName,
             sender: sender,
             audioFileName: audioFileName,
-            audioData: audioDataBase64 // Enviar como Base64
+            audioData: audioDataBase64
         }
     };
-    return sendTcpMessage(request, sender);
+    return sendTcpMessage(request);
 };
 
 const sendAudioToPrivate = (fromUser, toUser, audioFileName, audioDataBuffer) => {
-    // Convertir el buffer de audio a Base64 para incluirlo en el JSON
     const audioDataBase64 = audioDataBuffer.toString('base64');
     const request = {
         action: 'SEND_AUDIO_TO_PRIVATE',
@@ -194,15 +150,16 @@ const sendAudioToPrivate = (fromUser, toUser, audioFileName, audioDataBuffer) =>
             fromUser: fromUser,
             toUser: toUser,
             audioFileName: audioFileName,
-            audioData: audioDataBase64 // Enviar como Base64
+            audioData: audioDataBase64
         }
     };
-    return sendTcpMessage(request, fromUser);
+    return sendTcpMessage(request);
 };
 
 // Exportar las funciones
 module.exports = {
     login,
+    logout,
     getActiveUsers,
     getAvailableGroups,
     createGroup,

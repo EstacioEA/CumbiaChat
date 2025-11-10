@@ -55,6 +55,16 @@ class CumbiaChatAPI {
     }
 
     /**
+     * Logout de usuario
+     */
+    async logout(username) {
+        return await this.request(CONFIG.ENDPOINTS.LOGOUT, {
+            method: 'POST',
+            body: JSON.stringify({ username })
+        });
+    }
+
+    /**
      * Obtener usuarios activos
      */
     async getActiveUsers(username) {
