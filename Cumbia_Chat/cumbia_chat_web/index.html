@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CumbiaChat - ¡Dale ritmo a tus mensajes! 🎵</title>
+    <link rel="stylesheet" href="styles/login.css">
+</head>
+<body>
+<div class="background-animation">
+    <div class="wave wave1"></div>
+    <div class="wave wave2"></div>
+    <div class="wave wave3"></div>
+</div>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="logo-section">
+            <div class="logo">
+                <span class="music-note">🎵</span>
+                <h1 class="app-title">
+                    Cumbia<span class="highlight">Chat</span>
+                </h1>
+                <span class="music-note">🎶</span>
+            </div>
+            <p class="tagline">¡Dale ritmo a tus conversaciones!</p>
+        </div>
+
+        <form id="loginForm" class="login-form">
+            <div class="input-group">
+                <label for="username">
+                    <span class="icon">👤</span>
+                    Tu nombre de usuario
+                </label>
+                <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Ej: DonRitmo123"
+                        required
+                        autocomplete="off"
+                        maxlength="20"
+                >
+                <span class="input-hint">Mínimo 3 caracteres</span>
+            </div>
+
+            <button type="submit" class="btn-login" id="btnLogin">
+                <span class="btn-text">¡Entrar a bailar!</span>
+                <span class="btn-icon">🕺</span>
+            </button>
+
+            <div id="errorMessage" class="error-message" style="display: none;">
+                <span class="error-icon">⚠️</span>
+                <span id="errorText"></span>
+            </div>
+        </form>
+
+        <div class="footer-info">
+            <p>✨ CumbiaChat v2.0 - Proyecto de Redes ✨</p>
+        </div>
+    </div>
+
+    <!-- Loader animado -->
+    <div id="loader" class="loader-overlay" style="display: none;">
+        <div class="loader-content">
+            <div class="vinyl-loader">
+                <div class="vinyl-disc"></div>
+                <div class="vinyl-center"></div>
+            </div>
+            <p>Conectando al servidor...</p>
+        </div>
+    </div>
+</div>
+
+<script src="scripts/config.js"></script>
+<script src="scripts/api.js"></script>
+<script src="scripts/login.js"></script>
+</body>
+</html>

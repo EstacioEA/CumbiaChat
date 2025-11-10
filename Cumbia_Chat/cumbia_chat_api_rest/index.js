@@ -179,6 +179,59 @@ app.post("/api/messages/private", async (req, res) => {
     }
 });
 
+// Ruta para logout
+app.post("/api/auth/logout", async (req, res) => {
+    const { username } = req.body;
+    console.log("Intento de logout:", { username });
+
+    if (!username) {
+        return res.status(400).json({ error: "Nombre de usuario es requerido." });
+    }
+
+    try {
+        // Crear el mensaje de logout
+        const logoutMessage = {
+            action: 'LOGOUT',
+            data: {
+                username: username
+            }
+        };
+
+        // Enviar al backend
+        const net = require('net');
+        const socket = new net.Socket();
+
+        socket.connect(12345, 'localhost', () => {
+            socket.write(JSON.stringify(logoutMessage));
+            socket.write('\n');
+        });
+
+        socket.once('data', (data) => {
+            try {
+                const response = JSON.parse(data.toString().trim());
+                res.status(200).json(response);
+            } catch (e) {
+                res.status(500).json({ error: 'Error procesando respuesta' });
+            }
+            socket.end();
+        });
+
+        socket.on('error', (err) => {
+            console.error("Error en logout:", err);
+            res.status(500).json({ error: err.message });
+            socket.destroy();
+        });
+
+        socket.setTimeout(5000, () => {
+            socket.destroy(new Error('Timeout en logout'));
+        });
+
+    } catch (error) {
+        console.error("Error en POST /api/auth/logout:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- Nuevos endpoints para audio ---
 
 // Endpoint para enviar audio a un grupo
@@ -273,9 +326,51 @@ app.post("/api/messages/private/audio", upload.single('audio'), async (req, res)
     }
 });
 
-
-// ... más rutas según necesites
-
 app.listen(PORT, () => {
     console.log(`Servidor API REST CumbiaChat iniciado en http://localhost:${PORT}`);
+});
+
+
+// Endpoint para obtener historial de chat privado
+app.get("/api/history/private/:user1/:user2", async (req, res) => {
+    const { user1, user2 } = req.params;
+    const requestingUser = req.query.user || user1;
+    
+    console.log(`Obteniendo historial privado: ${user1} <-> ${user2}`);
+    
+    try {
+        const {getPrivateHistory} = require("./services/cumbiaChatDelegateService");
+        const response = await getPrivateHistory(user1, user2, requestingUser);
+        
+        if(response.status === 'success') {
+            res.status(200).json(response.data);
+        } else {
+            res.status(500).json({ error: response.message || 'Error obteniendo historial' });
+        }
+    } catch (error) {
+        console.error("Error en GET /api/history/private:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para obtener historial de grupo
+app.get("/api/history/group/:groupName", async (req, res) => {
+    const { groupName } = req.params;
+    const requestingUser = req.query.user;
+    
+    console.log(`Obteniendo historial de grupo: ${groupName}`);
+    
+    try {
+        const {getGroupHistory} = require("./services/cumbiaChatDelegateService");
+        const response = await getGroupHistory(groupName, requestingUser);
+        
+        if(response.status === 'success') {
+            res.status(200).json(response.data);
+        } else {
+            res.status(500).json({ error: response.message || 'Error obteniendo historial' });
+        }
+    } catch (error) {
+        console.error("Error en GET /api/history/group:", error);
+        res.status(500).json({ error: error.message });
+    }
 });
