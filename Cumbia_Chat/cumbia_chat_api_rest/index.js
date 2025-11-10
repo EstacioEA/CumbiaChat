@@ -329,3 +329,48 @@ app.post("/api/messages/private/audio", upload.single('audio'), async (req, res)
 app.listen(PORT, () => {
     console.log(`Servidor API REST CumbiaChat iniciado en http://localhost:${PORT}`);
 });
+
+
+// Endpoint para obtener historial de chat privado
+app.get("/api/history/private/:user1/:user2", async (req, res) => {
+    const { user1, user2 } = req.params;
+    const requestingUser = req.query.user || user1;
+    
+    console.log(`Obteniendo historial privado: ${user1} <-> ${user2}`);
+    
+    try {
+        const {getPrivateHistory} = require("./services/cumbiaChatDelegateService");
+        const response = await getPrivateHistory(user1, user2, requestingUser);
+        
+        if(response.status === 'success') {
+            res.status(200).json(response.data);
+        } else {
+            res.status(500).json({ error: response.message || 'Error obteniendo historial' });
+        }
+    } catch (error) {
+        console.error("Error en GET /api/history/private:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint para obtener historial de grupo
+app.get("/api/history/group/:groupName", async (req, res) => {
+    const { groupName } = req.params;
+    const requestingUser = req.query.user;
+    
+    console.log(`Obteniendo historial de grupo: ${groupName}`);
+    
+    try {
+        const {getGroupHistory} = require("./services/cumbiaChatDelegateService");
+        const response = await getGroupHistory(groupName, requestingUser);
+        
+        if(response.status === 'success') {
+            res.status(200).json(response.data);
+        } else {
+            res.status(500).json({ error: response.message || 'Error obteniendo historial' });
+        }
+    } catch (error) {
+        console.error("Error en GET /api/history/group:", error);
+        res.status(500).json({ error: error.message });
+    }
+});

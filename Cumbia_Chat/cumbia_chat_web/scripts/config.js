@@ -5,19 +5,22 @@
 const CONFIG = {
     // URL base del proxy/API REST
     API_BASE_URL: 'http://localhost:5000',
-
+    
     // Endpoints específicos
     ENDPOINTS: {
         LOGIN: '/api/auth/login',
+        LOGOUT: '/api/auth/logout',
         USERS: '/api/users',
         GROUPS: '/api/groups',
         JOIN_GROUP: '/api/groups/join',
         MESSAGE_GROUP: '/api/messages/group',
         MESSAGE_PRIVATE: '/api/messages/private',
         AUDIO_GROUP: '/api/messages/group/audio',
-        AUDIO_PRIVATE: '/api/messages/private/audio'
+        AUDIO_PRIVATE: '/api/messages/private/audio',
+        HISTORY_PRIVATE: '/api/history/private',
+        HISTORY_GROUP: '/api/history/group'
     },
-
+    
     // Configuración de la aplicación
     APP: {
         NAME: 'CumbiaChat',
@@ -27,7 +30,7 @@ const CONFIG = {
         MESSAGE_MAX_LENGTH: 500,
         POLL_INTERVAL: 3000 // Intervalo para polling de mensajes (ms)
     },
-
+    
     // Mensajes de la aplicación
     MESSAGES: {
         LOGIN: {
@@ -46,7 +49,7 @@ const CONFIG = {
             NO_GROUPS: 'No hay grupos disponibles'
         }
     },
-
+    
     // Almacenamiento local
     STORAGE_KEYS: {
         USERNAME: 'cumbiachat_username',

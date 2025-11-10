@@ -17,24 +17,24 @@ const elements = {
     // Navbar
     currentUsername: document.getElementById('currentUsername'),
     btnLogout: document.getElementById('btnLogout'),
-
+    
     // Tabs
     tabButtons: document.querySelectorAll('.tab-btn'),
     usersTab: document.getElementById('usersTab'),
     groupsTab: document.getElementById('groupsTab'),
-
+    
     // Listas
     usersList: document.getElementById('usersList'),
     groupsList: document.getElementById('groupsList'),
-
+    
     // Búsqueda
     searchUsers: document.getElementById('searchUsers'),
     searchGroups: document.getElementById('searchGroups'),
-
+    
     // Botones
     btnRefreshUsers: document.getElementById('btnRefreshUsers'),
     btnCreateGroup: document.getElementById('btnCreateGroup'),
-
+    
     // Chat
     emptyChat: document.getElementById('emptyChat'),
     chatContainer: document.getElementById('chatContainer'),
@@ -45,7 +45,7 @@ const elements = {
     messageInput: document.getElementById('messageInput'),
     messageForm: document.getElementById('messageForm'),
     btnCloseChat: document.getElementById('btnCloseChat'),
-
+    
     // Modal
     modalCreateGroup: document.getElementById('modalCreateGroup'),
     createGroupForm: document.getElementById('createGroupForm'),
@@ -59,19 +59,19 @@ function init() {
     // Verificar sesión
     appState.currentUser = checkSession();
     if (!appState.currentUser) return;
-
+    
     // Mostrar nombre de usuario
     elements.currentUsername.textContent = appState.currentUser;
-
+    
     // Event Listeners
     setupEventListeners();
-
+    
     // Cargar datos iniciales
     loadInitialData();
-
+    
     // Iniciar polling para actualizar listas
     startPolling();
-
+    
     console.log('🎵 CumbiaChat iniciado -', appState.currentUser);
 }
 
@@ -79,32 +79,32 @@ function init() {
 function setupEventListeners() {
     // Logout
     elements.btnLogout.addEventListener('click', handleLogout);
-
+    
     // Tabs
     elements.tabButtons.forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
-
+    
     // Refresh
     elements.btnRefreshUsers.addEventListener('click', loadUsers);
-
+    
     // Crear grupo
     elements.btnCreateGroup.addEventListener('click', openCreateGroupModal);
     elements.createGroupForm.addEventListener('submit', handleCreateGroup);
     elements.btnCloseModal.addEventListener('click', closeCreateGroupModal);
     elements.btnCancelGroup.addEventListener('click', closeCreateGroupModal);
-
+    
     // Búsqueda
     elements.searchUsers.addEventListener('input', debounce(filterUsers, 300));
     elements.searchGroups.addEventListener('input', debounce(filterGroups, 300));
-
+    
     // Chat
     elements.messageForm.addEventListener('submit', handleSendMessage);
     elements.btnCloseChat.addEventListener('click', closeChat);
-
+    
     // Auto-resize textarea
     elements.messageInput.addEventListener('input', autoResizeTextarea);
-
+    
     // Click fuera del modal para cerrar
     elements.modalCreateGroup.addEventListener('click', (e) => {
         if (e.target === elements.modalCreateGroup) {
@@ -126,7 +126,7 @@ async function loadInitialData() {
 async function loadUsers() {
     try {
         const response = await api.getActiveUsers(appState.currentUser);
-
+        
         if (response.success && response.data.users) {
             appState.users = response.data.users.filter(u => u !== appState.currentUser);
             renderUsersList();
@@ -140,7 +140,7 @@ async function loadUsers() {
 async function loadGroups() {
     try {
         const response = await api.getAvailableGroups(appState.currentUser);
-
+        
         if (response.success && response.data.groups) {
             appState.groups = response.data.groups;
             renderGroupsList();
@@ -154,7 +154,7 @@ async function loadGroups() {
 // ===== RENDERIZADO DE LISTAS =====
 function renderUsersList() {
     clearElement(elements.usersList);
-
+    
     if (appState.users.length === 0) {
         elements.usersList.innerHTML = `
             <div class="empty-state">
@@ -164,7 +164,7 @@ function renderUsersList() {
         `;
         return;
     }
-
+    
     appState.users.forEach(username => {
         const item = createListItem(username, 'user');
         elements.usersList.appendChild(item);
@@ -173,7 +173,7 @@ function renderUsersList() {
 
 function renderGroupsList() {
     clearElement(elements.groupsList);
-
+    
     if (appState.groups.length === 0) {
         elements.groupsList.innerHTML = `
             <div class="empty-state">
@@ -184,7 +184,7 @@ function renderGroupsList() {
         `;
         return;
     }
-
+    
     appState.groups.forEach(groupName => {
         const item = createListItem(groupName, 'group');
         elements.groupsList.appendChild(item);
@@ -192,17 +192,17 @@ function renderGroupsList() {
 }
 
 function createListItem(name, type) {
-    const isActive = appState.activeChat &&
-        appState.activeChat.name === name &&
-        appState.activeChat.type === type;
-
+    const isActive = appState.activeChat && 
+                     appState.activeChat.name === name && 
+                     appState.activeChat.type === type;
+    
     const item = document.createElement('div');
     item.className = `list-item ${isActive ? 'active' : ''}`;
     item.onclick = () => openChat(name, type);
-
+    
     const avatar = type === 'group' ? '🎪' : getRandomEmoji(name);
     const status = type === 'group' ? 'Grupo' : 'En línea';
-
+    
     item.innerHTML = `
         <div class="list-item-avatar">${avatar}</div>
         <div class="list-item-info">
@@ -210,7 +210,7 @@ function createListItem(name, type) {
             <div class="list-item-status">${status}</div>
         </div>
     `;
-
+    
     return item;
 }
 
@@ -218,7 +218,7 @@ function createListItem(name, type) {
 function filterUsers() {
     const query = elements.searchUsers.value.toLowerCase();
     const items = elements.usersList.querySelectorAll('.list-item');
-
+    
     items.forEach(item => {
         const name = item.querySelector('.list-item-name').textContent.toLowerCase();
         item.style.display = name.includes(query) ? 'flex' : 'none';
@@ -228,7 +228,7 @@ function filterUsers() {
 function filterGroups() {
     const query = elements.searchGroups.value.toLowerCase();
     const items = elements.groupsList.querySelectorAll('.list-item');
-
+    
     items.forEach(item => {
         const name = item.querySelector('.list-item-name').textContent.toLowerCase();
         item.style.display = name.includes(query) ? 'flex' : 'none';
@@ -245,11 +245,11 @@ function switchTab(tabName) {
             btn.classList.remove('active');
         }
     });
-
+    
     // Actualizar contenido
     const tabs = document.querySelectorAll('.tab-content');
     tabs.forEach(tab => tab.classList.remove('active'));
-
+    
     if (tabName === 'users') {
         elements.usersTab.classList.add('active');
     } else {
@@ -260,40 +260,39 @@ function switchTab(tabName) {
 // ===== CHAT =====
 async function openChat(name, type) {
     appState.activeChat = { name, type };
-
+    
     // Ocultar empty state
     elements.emptyChat.style.display = 'none';
     elements.chatContainer.style.display = 'flex';
-
+    
     // Actualizar header
     const avatar = type === 'group' ? '🎪' : getRandomEmoji(name);
     elements.chatAvatar.innerHTML = `<span>${avatar}</span>`;
     elements.chatName.textContent = name;
     elements.chatStatus.textContent = type === 'group' ? 'Grupo' : 'En línea';
-
+    
     // Limpiar input
     elements.messageInput.value = '';
-
-    // Cargar mensajes (por ahora vacío, se implementará con historial)
+    
+    // Limpiar mensajes
     clearElement(elements.messagesWrapper);
-
-    // Mensaje de bienvenida temporal
-    const welcomeMsg = document.createElement('div');
-    welcomeMsg.className = 'empty-state';
-    welcomeMsg.innerHTML = `
-        <span class="empty-icon">💬</span>
-        <p>Chat con ${escapeHtml(name)}</p>
-        <small>Envía tu primer mensaje</small>
-    `;
-    elements.messagesWrapper.appendChild(welcomeMsg);
-
+    
+    // Mostrar loader temporal
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'empty-state';
+    loadingMsg.innerHTML = '<p>Cargando historial...</p>';
+    elements.messagesWrapper.appendChild(loadingMsg);
+    
+    // Cargar historial
+    await loadChatHistory(name, type);
+    
     // Focus en input
     elements.messageInput.focus();
-
+    
     // Actualizar UI de listas
     renderUsersList();
     renderGroupsList();
-
+    
     console.log('Chat abierto:', name, type);
 }
 
@@ -301,7 +300,7 @@ function closeChat() {
     appState.activeChat = null;
     elements.emptyChat.style.display = 'flex';
     elements.chatContainer.style.display = 'none';
-
+    
     // Actualizar listas
     renderUsersList();
     renderGroupsList();
@@ -310,41 +309,41 @@ function closeChat() {
 // ===== ENVÍO DE MENSAJES =====
 async function handleSendMessage(e) {
     e.preventDefault();
-
+    
     const messageText = elements.messageInput.value.trim();
-
+    
     if (!messageText) {
         return;
     }
-
+    
     if (!isValidMessageLength(messageText)) {
         showToast(`Máximo ${CONFIG.APP.MESSAGE_MAX_LENGTH} caracteres`, 'warning');
         return;
     }
-
+    
     if (!appState.activeChat) {
         showToast('No hay chat seleccionado', 'warning');
         return;
     }
-
+    
     try {
         const { name, type } = appState.activeChat;
         let response;
-
+        
         if (type === 'group') {
             response = await api.sendMessageToGroup(name, appState.currentUser, messageText);
         } else {
             response = await api.sendPrivateMessage(appState.currentUser, name, messageText);
         }
-
+        
         if (response.success) {
             // Limpiar input
             elements.messageInput.value = '';
             autoResizeTextarea();
-
+            
             // Agregar mensaje a la UI
             addMessageToUI(appState.currentUser, messageText, Date.now(), true);
-
+            
             // Scroll al final
             scrollToBottom();
         } else {
@@ -362,12 +361,12 @@ function addMessageToUI(sender, text, timestamp, isOwn) {
     if (emptyState) {
         emptyState.remove();
     }
-
+    
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isOwn ? 'own' : ''}`;
-
+    
     const avatar = getRandomEmoji(sender);
-
+    
     messageDiv.innerHTML = `
         <div class="message-avatar">${avatar}</div>
         <div class="message-content">
@@ -376,7 +375,7 @@ function addMessageToUI(sender, text, timestamp, isOwn) {
             <div class="message-time">${formatTime(timestamp)}</div>
         </div>
     `;
-
+    
     elements.messagesWrapper.appendChild(messageDiv);
 }
 
@@ -400,34 +399,34 @@ function closeCreateGroupModal() {
 
 async function handleCreateGroup(e) {
     e.preventDefault();
-
+    
     const groupName = elements.groupNameInput.value.trim();
-
+    
     if (!groupName) {
         showToast('Ingresa un nombre de grupo', 'warning');
         return;
     }
-
+    
     if (groupName.length < 3) {
         showToast('El nombre debe tener al menos 3 caracteres', 'warning');
         return;
     }
-
+    
     showLoader();
-
+    
     try {
         const response = await api.createGroup(groupName, appState.currentUser);
-
+        
         if (response.success) {
             showToast('¡Grupo creado!', 'success');
             closeCreateGroupModal();
-
+            
             // Recargar grupos
             await loadGroups();
-
+            
             // Cambiar a tab de grupos
             switchTab('groups');
-
+            
             // Abrir el nuevo grupo
             openChat(groupName, 'group');
         } else {
@@ -474,7 +473,7 @@ function handleLogout() {
 // ===== CLEANUP =====
 window.addEventListener('beforeunload', async () => {
     stopPolling();
-
+    
     // Intentar hacer logout silencioso
     const username = getCurrentUser();
     if (username) {
