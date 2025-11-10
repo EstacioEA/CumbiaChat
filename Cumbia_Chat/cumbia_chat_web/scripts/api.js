@@ -13,7 +13,7 @@ class CumbiaChatAPI {
      */
     async request(endpoint, options = {}) {
         const url = `${this.baseUrl}${endpoint}`;
-
+        
         const defaultOptions = {
             headers: {
                 'Content-Type': 'application/json'
@@ -190,6 +190,60 @@ class CumbiaChatAPI {
 
         } catch (error) {
             console.error('Error enviando audio privado:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Obtener historial de chat privado
+     */
+    async getPrivateHistory(user1, user2, requestingUser) {
+        const url = `${this.baseUrl}${CONFIG.ENDPOINTS.HISTORY_PRIVATE}/${user1}/${user2}?user=${requestingUser}`;
+        
+        try {
+            const response = await fetch(url, { method: 'GET' });
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Error obteniendo historial');
+            }
+            
+            return {
+                success: true,
+                data: data
+            };
+        } catch (error) {
+            console.error('Error obteniendo historial privado:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Obtener historial de grupo
+     */
+    async getGroupHistory(groupName, requestingUser) {
+        const url = `${this.baseUrl}${CONFIG.ENDPOINTS.HISTORY_GROUP}/${groupName}?user=${requestingUser}`;
+        
+        try {
+            const response = await fetch(url, { method: 'GET' });
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Error obteniendo historial');
+            }
+            
+            return {
+                success: true,
+                data: data
+            };
+        } catch (error) {
+            console.error('Error obteniendo historial de grupo:', error);
             return {
                 success: false,
                 error: error.message

@@ -1,41 +1,31 @@
 /**
  * Lógica principal del chat de CumbiaChat
+ * VERSIÓN CORREGIDA - Funciones en orden correcto
  */
 
 // ===== ESTADO DE LA APLICACIÓN =====
 const appState = {
     currentUser: null,
-    activeChat: null,  // { type: 'user'|'group', name: string }
+    activeChat: null,
     users: [],
     groups: [],
-    messages: {},      // Por chat
+    messages: {},
     pollInterval: null
 };
 
 // ===== ELEMENTOS DEL DOM =====
 const elements = {
-    // Navbar
     currentUsername: document.getElementById('currentUsername'),
     btnLogout: document.getElementById('btnLogout'),
-    
-    // Tabs
     tabButtons: document.querySelectorAll('.tab-btn'),
     usersTab: document.getElementById('usersTab'),
     groupsTab: document.getElementById('groupsTab'),
-    
-    // Listas
     usersList: document.getElementById('usersList'),
     groupsList: document.getElementById('groupsList'),
-    
-    // Búsqueda
     searchUsers: document.getElementById('searchUsers'),
     searchGroups: document.getElementById('searchGroups'),
-    
-    // Botones
     btnRefreshUsers: document.getElementById('btnRefreshUsers'),
     btnCreateGroup: document.getElementById('btnCreateGroup'),
-    
-    // Chat
     emptyChat: document.getElementById('emptyChat'),
     chatContainer: document.getElementById('chatContainer'),
     chatName: document.getElementById('chatName'),
@@ -45,8 +35,6 @@ const elements = {
     messageInput: document.getElementById('messageInput'),
     messageForm: document.getElementById('messageForm'),
     btnCloseChat: document.getElementById('btnCloseChat'),
-    
-    // Modal
     modalCreateGroup: document.getElementById('modalCreateGroup'),
     createGroupForm: document.getElementById('createGroupForm'),
     groupNameInput: document.getElementById('groupName'),
@@ -54,22 +42,119 @@ const elements = {
     btnCancelGroup: document.getElementById('btnCancelGroup')
 };
 
+// ===== FUNCIONES AUXILIARES =====
+
+function addMessageToUI(sender, text, timestamp, isOwn, animate = true) {
+    const emptyState = elements.messagesWrapper.querySelector('.empty-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isOwn ? 'own' : ''}`;
+    
+    if (animate) {
+        messageDiv.style.animation = 'slide-in 0.3s ease';
+    }
+    
+    const avatar = getRandomEmoji(sender);
+    
+    messageDiv.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div class="message-content">
+            ${!isOwn ? `<div class="message-sender">${escapeHtml(sender)}</div>` : ''}
+            <div class="message-bubble">${escapeHtml(text)}</div>
+            <div class="message-time">${formatTime(timestamp)}</div>
+        </div>
+    `;
+    
+    elements.messagesWrapper.appendChild(messageDiv);
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('messagesContainer');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+function showEmptyHistory(name) {
+    clearElement(elements.messagesWrapper);
+    
+    const emptyMsg = document.createElement('div');
+    emptyMsg.className = 'empty-state';
+    emptyMsg.innerHTML = `
+        <span class="empty-icon">💬</span>
+        <p>Chat con ${escapeHtml(name)}</p>
+        <small>Envía tu primer mensaje</small>
+    `;
+    elements.messagesWrapper.appendChild(emptyMsg);
+}
+
+function parseAndDisplayHistory(historyText) {
+    clearElement(elements.messagesWrapper);
+    
+    if (historyText.includes("vacío")) {
+        showEmptyHistory(appState.activeChat.name);
+        return;
+    }
+    
+    const lines = historyText.split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+        showEmptyHistory(appState.activeChat.name);
+        return;
+    }
+    
+    lines.forEach(line => {
+        const match = line.match(/\[(.*?)\]\s*\[(.*?)\]\s*(.*?)\s*->\s*(.*?)\s*:\s*(.*)/);
+        
+        if (match) {
+            const [, timestamp, type, sender, dest, content] = match;
+            
+            if (type === 'TEXT') {
+                const isOwn = sender === appState.currentUser;
+                addMessageToUI(sender, content, new Date(timestamp).getTime(), isOwn, false);
+            } else if (type === 'AUDIO') {
+                const isOwn = sender === appState.currentUser;
+                addMessageToUI(sender, `🎵 Nota de voz: ${content}`, new Date(timestamp).getTime(), isOwn, false);
+            }
+        }
+    });
+    
+    scrollToBottom();
+}
+
+async function loadChatHistory(name, type) {
+    try {
+        let response;
+        
+        if (type === 'group') {
+            response = await api.getGroupHistory(name, appState.currentUser);
+        } else {
+            response = await api.getPrivateHistory(appState.currentUser, name, appState.currentUser);
+        }
+        
+        if (response.success && response.data.history) {
+            parseAndDisplayHistory(response.data.history);
+        } else {
+            showEmptyHistory(name);
+        }
+        
+    } catch (error) {
+        console.error('Error cargando historial:', error);
+        showEmptyHistory(name);
+    }
+}
+
 // ===== INICIALIZACIÓN =====
 function init() {
-    // Verificar sesión
     appState.currentUser = checkSession();
     if (!appState.currentUser) return;
     
-    // Mostrar nombre de usuario
     elements.currentUsername.textContent = appState.currentUser;
-    
-    // Event Listeners
     setupEventListeners();
-    
-    // Cargar datos iniciales
     loadInitialData();
-    
-    // Iniciar polling para actualizar listas
     startPolling();
     
     console.log('🎵 CumbiaChat iniciado -', appState.currentUser);
@@ -77,35 +162,20 @@ function init() {
 
 // ===== EVENT LISTENERS =====
 function setupEventListeners() {
-    // Logout
     elements.btnLogout.addEventListener('click', handleLogout);
-    
-    // Tabs
     elements.tabButtons.forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
     });
-    
-    // Refresh
     elements.btnRefreshUsers.addEventListener('click', loadUsers);
-    
-    // Crear grupo
     elements.btnCreateGroup.addEventListener('click', openCreateGroupModal);
     elements.createGroupForm.addEventListener('submit', handleCreateGroup);
     elements.btnCloseModal.addEventListener('click', closeCreateGroupModal);
     elements.btnCancelGroup.addEventListener('click', closeCreateGroupModal);
-    
-    // Búsqueda
     elements.searchUsers.addEventListener('input', debounce(filterUsers, 300));
     elements.searchGroups.addEventListener('input', debounce(filterGroups, 300));
-    
-    // Chat
     elements.messageForm.addEventListener('submit', handleSendMessage);
     elements.btnCloseChat.addEventListener('click', closeChat);
-    
-    // Auto-resize textarea
     elements.messageInput.addEventListener('input', autoResizeTextarea);
-    
-    // Click fuera del modal para cerrar
     elements.modalCreateGroup.addEventListener('click', (e) => {
         if (e.target === elements.modalCreateGroup) {
             closeCreateGroupModal();
@@ -116,42 +186,35 @@ function setupEventListeners() {
 // ===== CARGA DE DATOS =====
 async function loadInitialData() {
     showLoader();
-    await Promise.all([
-        loadUsers(),
-        loadGroups()
-    ]);
+    await Promise.all([loadUsers(), loadGroups()]);
     hideLoader();
 }
 
 async function loadUsers() {
     try {
         const response = await api.getActiveUsers(appState.currentUser);
-        
         if (response.success && response.data.users) {
             appState.users = response.data.users.filter(u => u !== appState.currentUser);
             renderUsersList();
         }
     } catch (error) {
         console.error('Error cargando usuarios:', error);
-        showToast('Error cargando usuarios', 'error');
     }
 }
 
 async function loadGroups() {
     try {
         const response = await api.getAvailableGroups(appState.currentUser);
-        
         if (response.success && response.data.groups) {
             appState.groups = response.data.groups;
             renderGroupsList();
         }
     } catch (error) {
         console.error('Error cargando grupos:', error);
-        showToast('Error cargando grupos', 'error');
     }
 }
 
-// ===== RENDERIZADO DE LISTAS =====
+// ===== RENDERIZADO =====
 function renderUsersList() {
     clearElement(elements.usersList);
     
@@ -218,7 +281,6 @@ function createListItem(name, type) {
 function filterUsers() {
     const query = elements.searchUsers.value.toLowerCase();
     const items = elements.usersList.querySelectorAll('.list-item');
-    
     items.forEach(item => {
         const name = item.querySelector('.list-item-name').textContent.toLowerCase();
         item.style.display = name.includes(query) ? 'flex' : 'none';
@@ -228,16 +290,14 @@ function filterUsers() {
 function filterGroups() {
     const query = elements.searchGroups.value.toLowerCase();
     const items = elements.groupsList.querySelectorAll('.list-item');
-    
     items.forEach(item => {
         const name = item.querySelector('.list-item-name').textContent.toLowerCase();
         item.style.display = name.includes(query) ? 'flex' : 'none';
     });
 }
 
-// ===== CAMBIO DE TABS =====
+// ===== TABS =====
 function switchTab(tabName) {
-    // Actualizar botones
     elements.tabButtons.forEach(btn => {
         if (btn.dataset.tab === tabName) {
             btn.classList.add('active');
@@ -246,7 +306,6 @@ function switchTab(tabName) {
         }
     });
     
-    // Actualizar contenido
     const tabs = document.querySelectorAll('.tab-content');
     tabs.forEach(tab => tab.classList.remove('active'));
     
@@ -261,35 +320,25 @@ function switchTab(tabName) {
 async function openChat(name, type) {
     appState.activeChat = { name, type };
     
-    // Ocultar empty state
     elements.emptyChat.style.display = 'none';
     elements.chatContainer.style.display = 'flex';
     
-    // Actualizar header
     const avatar = type === 'group' ? '🎪' : getRandomEmoji(name);
     elements.chatAvatar.innerHTML = `<span>${avatar}</span>`;
     elements.chatName.textContent = name;
     elements.chatStatus.textContent = type === 'group' ? 'Grupo' : 'En línea';
     
-    // Limpiar input
     elements.messageInput.value = '';
-    
-    // Limpiar mensajes
     clearElement(elements.messagesWrapper);
     
-    // Mostrar loader temporal
     const loadingMsg = document.createElement('div');
     loadingMsg.className = 'empty-state';
     loadingMsg.innerHTML = '<p>Cargando historial...</p>';
     elements.messagesWrapper.appendChild(loadingMsg);
     
-    // Cargar historial
     await loadChatHistory(name, type);
     
-    // Focus en input
     elements.messageInput.focus();
-    
-    // Actualizar UI de listas
     renderUsersList();
     renderGroupsList();
     
@@ -300,29 +349,22 @@ function closeChat() {
     appState.activeChat = null;
     elements.emptyChat.style.display = 'flex';
     elements.chatContainer.style.display = 'none';
-    
-    // Actualizar listas
     renderUsersList();
     renderGroupsList();
 }
 
-// ===== ENVÍO DE MENSAJES =====
+// ===== MENSAJES =====
 async function handleSendMessage(e) {
     e.preventDefault();
     
     const messageText = elements.messageInput.value.trim();
     
-    if (!messageText) {
+    if (!messageText || !appState.activeChat) {
         return;
     }
     
     if (!isValidMessageLength(messageText)) {
         showToast(`Máximo ${CONFIG.APP.MESSAGE_MAX_LENGTH} caracteres`, 'warning');
-        return;
-    }
-    
-    if (!appState.activeChat) {
-        showToast('No hay chat seleccionado', 'warning');
         return;
     }
     
@@ -337,15 +379,11 @@ async function handleSendMessage(e) {
         }
         
         if (response.success) {
-            // Limpiar input
             elements.messageInput.value = '';
             autoResizeTextarea();
-            
-            // Agregar mensaje a la UI
             addMessageToUI(appState.currentUser, messageText, Date.now(), true);
-            
-            // Scroll al final
             scrollToBottom();
+            showToast('Mensaje enviado', 'success', 2000);
         } else {
             showToast('Error enviando mensaje', 'error');
         }
@@ -355,38 +393,7 @@ async function handleSendMessage(e) {
     }
 }
 
-function addMessageToUI(sender, text, timestamp, isOwn) {
-    // Remover empty state si existe
-    const emptyState = elements.messagesWrapper.querySelector('.empty-state');
-    if (emptyState) {
-        emptyState.remove();
-    }
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isOwn ? 'own' : ''}`;
-    
-    const avatar = getRandomEmoji(sender);
-    
-    messageDiv.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">
-            ${!isOwn ? `<div class="message-sender">${escapeHtml(sender)}</div>` : ''}
-            <div class="message-bubble">${escapeHtml(text)}</div>
-            <div class="message-time">${formatTime(timestamp)}</div>
-        </div>
-    `;
-    
-    elements.messagesWrapper.appendChild(messageDiv);
-}
-
-function scrollToBottom() {
-    const container = document.getElementById('messagesContainer');
-    if (container) {
-        container.scrollTop = container.scrollHeight;
-    }
-}
-
-// ===== CREAR GRUPO =====
+// ===== GRUPOS =====
 function openCreateGroupModal() {
     elements.modalCreateGroup.style.display = 'flex';
     elements.groupNameInput.value = '';
@@ -402,12 +409,7 @@ async function handleCreateGroup(e) {
     
     const groupName = elements.groupNameInput.value.trim();
     
-    if (!groupName) {
-        showToast('Ingresa un nombre de grupo', 'warning');
-        return;
-    }
-    
-    if (groupName.length < 3) {
+    if (!groupName || groupName.length < 3) {
         showToast('El nombre debe tener al menos 3 caracteres', 'warning');
         return;
     }
@@ -420,14 +422,8 @@ async function handleCreateGroup(e) {
         if (response.success) {
             showToast('¡Grupo creado!', 'success');
             closeCreateGroupModal();
-            
-            // Recargar grupos
             await loadGroups();
-            
-            // Cambiar a tab de grupos
             switchTab('groups');
-            
-            // Abrir el nuevo grupo
             openChat(groupName, 'group');
         } else {
             showToast(response.error || 'El grupo ya existe', 'error');
@@ -442,7 +438,6 @@ async function handleCreateGroup(e) {
 
 // ===== POLLING =====
 function startPolling() {
-    // Actualizar listas cada cierto tiempo
     appState.pollInterval = setInterval(async () => {
         await loadUsers();
         await loadGroups();
@@ -456,7 +451,7 @@ function stopPolling() {
     }
 }
 
-// ===== UTILIDADES UI =====
+// ===== UTILIDADES =====
 function autoResizeTextarea() {
     const textarea = elements.messageInput;
     textarea.style.height = 'auto';
@@ -466,26 +461,24 @@ function autoResizeTextarea() {
 function handleLogout() {
     if (confirm('¿Seguro que quieres salir?')) {
         stopPolling();
-        logout(); // Esta función ya hace el API call
+        logout();
     }
 }
 
 // ===== CLEANUP =====
 window.addEventListener('beforeunload', async () => {
     stopPolling();
-    
-    // Intentar hacer logout silencioso
     const username = getCurrentUser();
     if (username) {
         try {
             await api.logout(username);
         } catch (e) {
-            // Ignorar errores en beforeunload
+            // Ignorar
         }
     }
 });
 
-// ===== INICIAR APLICACIÓN =====
+// ===== INICIAR =====
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

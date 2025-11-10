@@ -1,0 +1,3 @@
+[2025-11-10 09:36:12] [TEXT] Andres -> Privado_Andres_Edwar : Hola
+[2025-11-10 09:37:02] [TEXT] Andres -> Privado_Andres_Edwar : Contestemeeee
+[2025-11-10 09:39:26] [TEXT] Andres -> Privado_Andres_Edwar : hola
