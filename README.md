@@ -1,144 +1,281 @@
-# 🎶 CumbiaChat
+# 🎵 CumbiaChat v2.0 - Cliente Web con Proxy HTTP
 
-**CumbiaChat** es una aplicación cliente-servidor desarrollada en Java que permite comunicación en tiempo real entre usuarios mediante texto, notas de voz y llamadas.  
-El proyecto combina los protocolos **TCP** y **UDP** para optimizar el rendimiento y la confiabilidad según el tipo de comunicación.
+**CumbiaChat** es una aplicación de mensajería en tiempo real que permite la comunicación entre usuarios mediante texto y notas de voz. En esta segunda entrega, el proyecto evoluciona de una aplicación de consola Java a una **aplicación web moderna** que utiliza **HTML, CSS y JavaScript** como frontend, comunicándose con el backend Java original a través de un **proxy HTTP basado en Express**.
 
 ---
 
-## 👥 Equipo de desarrollo
+## 👥 Equipo de Desarrollo
 
-- **Jose Valdes**
+- **Jose Valdez**
 - **Juan Diego Balanta**
 - **Edwar Andres Estacio**
 
 ---
 
-## 💡 Descripción general
+## 📋 Descripción General
 
-CumbiaChat implementa un sistema de mensajería que integra múltiples tipos de comunicación en una arquitectura cliente-servidor basada en **sockets**.  
-El sistema está diseñado para ser flexible, eficiente y modular.
+Esta es la **segunda entrega** del proyecto CumbiaChat, enfocada en la transición del cliente de consola Java a un cliente web moderno. El sistema mantiene la arquitectura cliente-servidor original, pero introduce una capa intermedia (proxy HTTP) que permite la comunicación entre el navegador web y el servidor TCP Java.
 
----
+### Arquitectura del Sistema
+```
+┌─────────────────┐         HTTP          ┌──────────────────┐         TCP          ┌──────────────────┐
+│   Cliente Web   │ ◄──────────────────► │   Proxy Express  │ ◄──────────────────► │  Servidor Java   │
+│ (HTML/CSS/JS)   │    REST API Calls    │   (Node.js)      │   Socket Messages   │   (TCP Server)   │
+└─────────────────┘                       └──────────────────┘                       └──────────────────┘
+```
 
-## ⚙️ Funcionalidades principales
+**Flujo de Comunicación:**
 
-| Requerimiento | Descripción | Protocolo |
-|----------------|-------------|------------|
-| **1. Creación de grupos de chat** | Los usuarios pueden crear y unirse a grupos. Cada grupo mantiene su propia lista de participantes y su historial. | **TCP** |
-| **2. Mensajes de texto** | Envío y recepción de mensajes individuales o grupales en tiempo real. | **TCP** |
-| **3. Notas de voz** | Envío de grabaciones de audio en formato PCM mediante datagramas. | **UDP** |
-| **4. Llamadas de voz** | Comunicación bidireccional en tiempo real entre usuarios o grupos, con transmisión directa de audio. | **UDP** |
-| **5. Historial de mensajes** | Registro persistente de mensajes y notas de voz enviados por usuario o grupo. | **TCP** |
-
----
-
-## 🧱 Arquitectura del sistema
-
-CumbiaChat utiliza una arquitectura **cliente-servidor multihilo** con los siguientes módulos:
-
-### 🖥️ Servidor (`Server`)
-- Gestiona las conexiones TCP de todos los clientes.
-- Mantiene una lista de usuarios conectados, grupos activos y el historial de mensajes.
-- Crea instancias de **UDPAudioServer** para manejar llamadas y notas de voz.
-
-### 💬 Cliente (`Client`)
-- Interactúa con el usuario mediante interfaz gráfica o consola.
-- Envía comandos al servidor por TCP y gestiona las sesiones UDP para audio.
-- Utiliza **UDPAudioClient** para grabar, enviar y reproducir audio en tiempo real.
-
-### 🔊 Módulos UDP (`com.example.chat.UDP`)
-- **UDPAudioClient**: captura audio del micrófono, lo envía por UDP y reproduce el audio recibido.
-- **UDPAudioServer**: recibe y redistribuye los paquetes de audio a todos los participantes conectados.
+1. **Cliente Web → Proxy HTTP**: El navegador realiza peticiones HTTP/AJAX al proxy Express (puerto 5000)
+2. **Proxy → Backend Java**: El proxy traduce las peticiones HTTP a mensajes JSON que el servidor TCP Java entiende (puerto 12345)
+3. **Backend Java → Proxy**: El servidor procesa la petición y responde con JSON
+4. **Proxy → Cliente Web**: El proxy reenvía la respuesta al navegador en formato JSON
 
 ---
 
-## 🧩 Tecnologías utilizadas
+## ⚙️ Funcionalidades Implementadas
 
-- **Lenguaje:** Java 24
-- **Framework de compilación:** Gradle
-- **Comunicación:** TCP y UDP (Sockets de Java)
-- **Audio:** `javax.sound.sampled`
+| Requerimiento | Descripción | Estado |
+|---------------|-------------|--------|
+| **1. Crear grupos** | Los usuarios pueden crear nuevos grupos de chat | ✅ Implementado |
+| **2. Mensajes de texto** | Envío de mensajes a usuarios individuales o grupos | ✅ Implementado |
+| **3. Historial de mensajes** | Consultar mensajes previos de chats privados y grupales | ✅ Implementado |
+| **4. Gestión de usuarios** | Ver usuarios conectados y unirse a grupos | ✅ Implementado |
 
----
-
-
-# 🕺 Cumbia Chat - Guía de Ejecución
-
-## 📋 Descripción general
-**Cumbia Chat** es una aplicación de mensajería simple desarrollada en **Java** que permite la comunicación entre clientes y un servidor utilizando los protocolos **TCP** y **UDP**.  
-El proyecto está configurado con **Gradle** y se puede ejecutar directamente desde la línea de comandos sin necesidad de un IDE.
+> **Nota**: Las funcionalidades de llamadas en tiempo real (UDP) no se han implementado en esta versión web, ya que se implementarán mediante WebSockets en la entrega final.
 
 ---
 
-## ⚙️ Requisitos previos
+## 🚀 Instrucciones de Ejecución
 
-Antes de ejecutar el proyecto, asegúrate de tener instalados los siguientes componentes:
+### Requisitos Previos
 
 | Requisito | Versión mínima | Verificar instalación |
-|------------|----------------|------------------------|
-| **Java JDK** | 22 o superior | `java -version` |
-| **Gradle** | (Opcional, el wrapper está incluido) | `gradle -v` |
-| **Terminal / Consola** | Cualquiera (CMD, PowerShell, bash, etc.) | — |
-
-> 💡 El proyecto incluye el **Gradle Wrapper**, así que no necesitas tener Gradle instalado globalmente.
+|-----------|----------------|------------------------|
+| **Java JDK** | 17 o superior | `java -version` |
+| **Node.js** | 16 o superior | `node -v` |
+| **npm** | 8 o superior | `npm -v` |
 
 ---
 
-## 🚀 Compilar el proyecto
+### Paso 1: Iniciar el Servidor Java (Backend)
 
-Primero, asegúrate de estar en la carpeta Cumbia_Chat que está dentro de el repositorio CumbiaChat (donde está el archivo `build.gradle`), es decir:CumbiaChat\Cumbia_Chat
-
-Luego, ejecuta el siguiente comando:
-
-```bash
-.\gradlew clean build
+1. Navega a la carpeta del servidor:
 ```
-Esto limpiará compilaciones anteriores y generará los archivos `.class` en la carpeta `build/classes/java/main`
-
-## Ejecución del proyecto
-
-### Servidor TCP
-
-Para iniciar el **servidor TCP**, ejecuta:
-
-```bash
-java -cp build/classes/java/main com.example.chat.TCP.Server
+   CumbiaChat\Cumbia_Chat\src\main\java\com\example\chat\TCP\
 ```
 
-Por defecto, el servidor se ejecuta en el puerto 5000 y espera conexiones de los clientes TCP.
-
-### Cliente TCP
-
-Para conectar un **cliente TCP** al servidor, abre **otra terminal** y ejecuta (puedes abrir **varias terminales** para conectar **diferentes clientes**):
-
+2. Ejecuta el archivo `Server.java` desde tu IDE (IntelliJ IDEA, Eclipse, VS Code con extensión Java) o mediante línea de comandos:
 ```bash
-java -cp build/classes/java/main com.example.chat.TCP.Client
+   # Compilar (si usas Gradle)
+   cd CumbiaChat/Cumbia_Chat
+   ./gradlew build
+   
+   # Ejecutar el servidor
+   java -cp build/classes/java/main com.example.chat.TCP.Server
 ```
 
-El cliente intentará conectarse automáticamente al servidor TCP (localhost:5000).
+3. Deberías ver el mensaje:
+```
+   Servidor TCP corriendo en puerto 12345
+```
 
-Una vez conectado, podrás:
+> **¿Qué hace el servidor?** Gestiona todas las conexiones de clientes, mantiene el registro de usuarios conectados, grupos activos y el historial de mensajes. Opera en el puerto TCP **12345**.
 
-- Enviar mensajes al servidor.
-- Ver los mensajes que otros clientes envían.
+---
 
-## Menú principal del cliente
+### Paso 2: Configurar e Iniciar el Proxy HTTP (Node.js/Express)
 
-Cuando ejecutas un **cliente**, se te mostrará un menú con opciones como:
+1. Navega a la carpeta del proxy:
+```bash
+   cd CumbiaChat\Cumbia_Chat\cumbia_chat_api_rest
+```
 
-=== MENU PRINCIPAL ===
-1) Entrar a chat grupal
-2) Conectarme con un usuario especifico
-3) Ver chats disponibles
-4) Salir
+2. **Instala las dependencias** de Node.js:
+```bash
+   npm install
+```
+   
+   > **¿Para qué sirve?** Este comando descarga e instala todas las librerías necesarias definidas en `package.json`, como **Express** (servidor HTTP), **CORS** (para permitir peticiones desde el navegador) y **Multer** (para manejar archivos de audio).
+
+3. **Inicia el servidor proxy**:
+```bash
+   node index.js
+```
+
+4. Deberías ver el mensaje:
+```
+   Servidor API REST CumbiaChat iniciado en http://localhost:5000
+```
+
+> **¿Qué hace el proxy?** Actúa como intermediario entre el cliente web y el servidor Java. Recibe peticiones HTTP del navegador (por ejemplo, "crear grupo"), las traduce a mensajes JSON que el servidor TCP entiende, y devuelve las respuestas al navegador. Opera en el puerto HTTP **5000**.
+
+---
+
+### Paso 3: Iniciar el Cliente Web
+
+1. Navega a la carpeta del cliente web:
+```bash
+   cd CumbiaChat\Cumbia_Chat\cumbia_chat_web
+```
+
+2. **Inicia un servidor HTTP estático**:
+```bash
+   npx http-server -p 3000
+```
+
+   > **¿Para qué sirve?** Este comando levanta un servidor web simple que sirve los archivos HTML, CSS y JavaScript de tu aplicación. El puerto **3000** es donde podrás acceder a la aplicación desde el navegador.
+
+3. **Abre tu navegador** y accede a:
+```
+   http://localhost:3000
+```
+   o si abriste otros clientes accede:
+```
+   http://localhost:300x
+```
+
+4. **¿Necesitas varios clientes?** Puedes abrir múltiples ventanas del navegador (o usar diferentes puertos):
+```bash
+   # Cliente 1
+   npx http-server -p 3000
+   
+   # Cliente 2 (en otra terminal)
+   npx http-server -p 3001
+   
+   # Cliente 3
+   npx http-server -p 3002
+```
+
+---
+
+## 🎨 Uso de la Aplicación
+
+### 1️⃣ **Login**
+- Ingresa un nombre de usuario único
+- Haz clic en "¡Entrar a bailar!"
+
+### 2️⃣ **Crear un Grupo**
+- Ve a la pestaña "Grupos"
+- Haz clic en el botón **➕**
+- Ingresa el nombre del grupo
+
+### 3️⃣ **Enviar Mensajes**
+- Selecciona un usuario o grupo de la lista
+- Escribe tu mensaje en el campo de texto
+- Presiona "Enviar" o la tecla Enter
 
 
-Selecciona la opción deseada escribiendo el número correspondiente y presionando **Enter**.
+### 4️⃣ **Ver Historial**
+- El historial de mensajes se carga automáticamente al abrir un chat
+- Incluye mensajes de texto y notificaciones de audios
 
-## Solución de problemas comunes
+---
 
-| Problema                 | Causa probable                                 | Solución                                                             |
-| ------------------------ | ---------------------------------------------- | -------------------------------------------------------------------- |
-| `ClassNotFoundException` | Estás ejecutando el comando desde otra carpeta | Verifica que estés en la raíz del proyecto (`build.gradle` visible). |
-| `Address already in use` | El puerto (5000 o 6000) ya está ocupado        | Cambia el puerto en el código o cierra procesos anteriores.          |
-| `java.net.BindException` | Falta de permisos o error al asignar puerto    | Ejecuta la consola como administrador o usa otro puerto.             |
+## 🧩 Tecnologías Utilizadas
+
+### **Backend (Java)**
+- **Lenguaje:** Java 17
+- **Framework de compilación:** Gradle
+- **Comunicación:** TCP Sockets + JSON (Gson)
+- **Audio:** `javax.sound.sampled`
+
+### **Proxy (Node.js)**
+- **Lenguaje:** JavaScript (Node.js)
+- **Framework:** Express.js
+- **Librerías:** CORS, Multer, net (sockets TCP)
+
+### **Frontend (Web)**
+- **Lenguaje:** HTML5, CSS3, JavaScript (ES6+)
+- **API:** Fetch API para llamadas HTTP
+- **Almacenamiento:** LocalStorage para sesiones
+
+---
+
+## 📂 Estructura del Proyecto
+```
+CumbiaChat/
+├── src/main/java/com/example/chat/
+│   ├── TCP/
+│   │   ├── Server.java                 # Servidor TCP principal
+│   │   ├── ClientHandler.java          # Manejo de clientes (JSON)
+│   │   └── JSONProtocolHandler.java    # Handler para protocolo JSON
+│   ├── data/
+│   │   ├── User.java                   # Modelo de usuario
+│   │   ├── Group.java                  # Modelo de grupo
+│   │   └── HistorialManager.java       # Gestión de historiales
+│   └── audio/
+│       ├── AudioPlayer.java            # Reproductor de audio
+│       └── AudioRecorder.java          # Grabador de audio
+│
+├── cumbia_chat_api_rest/
+│   ├── index.js                        # Servidor Express (proxy HTTP)
+│   ├── services/
+│   │   └── cumbiaChatDelegateService.js # Lógica de comunicación TCP
+│   └── package.json                    # Dependencias de Node.js
+│
+└── cumbia_chat_web/
+    ├── index.html                      # Página de login
+    ├── chat.html                       # Interfaz principal del chat
+    ├── scripts/
+    │   ├── config.js                   # Configuración (endpoints, URLs)
+    │   ├── api.js                      # Cliente HTTP (fetch)
+    │   ├── utils.js                    # Utilidades y helpers
+    │   ├── login.js                    # Lógica de autenticación
+    │   └── chat.js                     # Lógica principal del chat
+    └── styles/
+        ├── login.css                   # Estilos de la página de login
+        └── chat.css                    # Estilos de la interfaz de chat
+```
+
+---
+
+## 🔧 Solución de Problemas Comunes
+
+| Problema | Causa | Solución |
+|----------|-------|----------|
+| **El servidor Java no inicia** | Puerto 12345 ocupado | Cambia el puerto en `Server.java` o cierra procesos que lo usen: `netstat -ano \| findstr :12345` |
+| **El proxy no se conecta al backend** | Servidor Java no está corriendo | Verifica que el servidor Java esté activo en el puerto 12345 |
+| **Error CORS en el navegador** | Proxy no configurado correctamente | Verifica que el proxy Express tenga `app.use(cors())` habilitado |
+| **No se cargan usuarios/grupos** | Problema de comunicación | Revisa la consola del navegador (F12) y los logs del proxy |
+| **"Cannot find module"** | Dependencias no instaladas | Ejecuta `npm install` en `cumbia_chat_api_rest` |
+
+---
+
+
+### Interfaz de Chat
+- **Sidebar izquierdo:** Lista de usuarios y grupos
+- **Área central:** Mensajes del chat activo
+- **Campo de entrada:** Para escribir y enviar mensajes
+
+---
+
+## 🎯 Diferencias con la Tarea 1
+
+| Aspecto | Tarea 1 | Tarea 2 |
+|---------|---------|---------|
+| **Cliente** | Consola Java | Navegador Web (HTML/CSS/JS) |
+| **Protocolo** | TCP directo | HTTP → TCP (via proxy) |
+| **Llamadas de voz** | ✅ UDP en tiempo real | ❌ Deshabilitado (futuro: WebSockets) |
+| **Interfaz** | Menús de texto | Interfaz gráfica moderna |
+| **Mensajería** | Sincrónica | Asincrónica (AJAX) |
+
+---
+
+## 📝 Notas Importantes
+
+- **Historiales persistentes:** Los mensajes se guardan en archivos `.txt` en la carpeta raíz del servidor Java
+- **Sesiones:** El cliente web mantiene la sesión mediante `localStorage`
+- **Sin WebSockets:** Esta versión **NO** implementa comunicación en tiempo real (se agregará en el proyecto final)
+
+---
+
+## 🎵 ¡Gracias por usar CumbiaChat!
+
+**Proyecto desarrollado para la asignatura de Computacion en Internet I**  
+Universidad Icesi- 2025
+
+---
+
+**Versión:** 2.0 (Cliente Web)  
+**Fecha:** Noviembre 2025 
