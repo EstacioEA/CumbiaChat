@@ -83,10 +83,8 @@ public class Server {
     public static void broadcastToGroup(String groupName, String message, String sender) {
         Group g = groups.get(groupName);
         if (g == null) return;
-        for (User member : g.getMembers()) {
-            ClientHandler h = connectedUsers.get(member.getUsername());
-            if (h != null) h.sendMessage("[GRUPO " + groupName + "] " + sender + ": " + message);
-        }
+        
+        System.out.println("[GRUPO " + groupName + "] " + sender + ": " + message);
     }
 
     public static void sendPrivateMessage(String fromUser, String toUser, String message) {

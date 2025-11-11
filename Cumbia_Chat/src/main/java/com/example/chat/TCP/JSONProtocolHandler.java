@@ -177,10 +177,13 @@ public class JSONProtocolHandler implements Runnable {
                     String sender = data.get("sender").getAsString();
                     String message = data.get("message").getAsString();
                     
-                    System.out.println("[JSON] Mensaje a grupo: " + groupName + " de " + sender);
+                    System.out.println("[JSON] Mensaje a grupo '" + groupName + "' de " + sender);
                     
-                    Server.broadcastToGroup(groupName, message, sender);
+                    // Guardar en historial
                     HistorialManager.registrarMensajeTexto(sender, groupName, message);
+                    
+                    // Broadcast (solo para logging, no envía en tiempo real)
+                    Server.broadcastToGroup(groupName, message, sender);
                     
                     response.addProperty("status", "success");
                     response.addProperty("message", "Mensaje enviado");
