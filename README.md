@@ -239,6 +239,7 @@ CumbiaChat/
 | **Error CORS en el navegador** | Proxy no configurado correctamente | Verifica que el proxy Express tenga `app.use(cors())` habilitado |
 | **No se cargan usuarios/grupos** | Problema de comunicación | Revisa la consola del navegador (F12) y los logs del proxy |
 | **"Cannot find module"** | Dependencias no instaladas | Ejecuta `npm install` en `cumbia_chat_api_rest` |
+| **"Se ha producido un error de enlace al cargar la clase principal com.example.chat.TCP.Server  java.lang.UnsupportedClassVersionError: com/example/chat/TCP/Server has been compiled by a more recent version of the Java Runtime (class file version 66.0), this version of the Java Runtime only recognizes class file versions up to 65.0"** | Version de Java no compatible | ctrl + shift + P -> Configure Java Runtime -> Cambiar version de Java a JavaSE-24 |
 
 ---
 
