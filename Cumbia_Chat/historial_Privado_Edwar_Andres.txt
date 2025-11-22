@@ -1,0 +1,7 @@
+[2025-11-10 09:36:40] [TEXT] Edwar -> Privado_Edwar_Andres : Como vas?
+[2025-11-10 09:38:15] [TEXT] Edwar -> Privado_Edwar_Andres : Holaaaaaa
+[2025-11-10 09:40:56] [TEXT] Edwar -> Privado_Edwar_Andres : Hola
+[2025-11-10 15:20:03] [TEXT] Edwar -> Privado_Edwar_Andres : Hola
+[2025-11-10 15:44:08] [TEXT] Edwar -> Privado_Edwar_Andres : Hoola
+[2025-11-10 15:59:21] [TEXT] Edwar -> Privado_Edwar_Andres : Hola
+[2025-11-10 16:06:21] [TEXT] Edwar -> Privado_Edwar_Andres : Hola

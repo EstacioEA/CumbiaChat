@@ -1,208 +1,189 @@
 // services/cumbiaChatDelegateService.js
-const net = require('net');
+const net = require("net")
 
 // Constantes
-const SERVER_HOST = 'localhost';
-const SERVER_PORT = 12345; // El puerto donde escucha tu Server.java
+const SERVER_HOST = "localhost"
+const SERVER_PORT = 12345
 
 // Función genérica para enviar un mensaje TCP y esperar una respuesta
-const sendTcpMessage = (messageObject, username) => {
+const sendTcpMessage = (messageObject) => {
     return new Promise((resolve, reject) => {
-        const socket = new net.Socket();
+        const socket = new net.Socket()
 
         socket.connect(SERVER_PORT, SERVER_HOST, () => {
-            if (messageObject.action === 'LOGIN') {
-                socket.write(JSON.stringify(messageObject));
-                socket.write('\n');
-            } else {
-                const loginMessage = {
-                    action: 'LOGIN',
-                    data: {
-                        username: username
-                    }
-                };
-                socket.write(JSON.stringify(loginMessage));
-                socket.write('\n');
+            // Enviar el mensaje directamente (sin login previo)
+            socket.write(JSON.stringify(messageObject))
+            socket.write("\n")
+        })
 
-                socket.once('data', (data) => {
-                    const loginResponse = data.toString().trim();
-                    try {
-                        const parsedLoginResponse = JSON.parse(loginResponse);
-                        if (parsedLoginResponse.status !== 'success') {
-                            socket.destroy(new Error(`Error en login: ${parsedLoginResponse.message}`));
-                            return;
-                        }
-                        socket.write(JSON.stringify(messageObject));
-                        socket.write('\n');
-                    } catch (e) {
-                        socket.destroy(new Error(`Error parseando respuesta de login: ${e.message}`));
-                        return;
-                    }
-                });
-            }
-        });
-
-        socket.once('data', (data) => {
-            const response = data.toString().trim();
+        socket.once("data", (data) => {
+            const response = data.toString().trim()
             try {
-                const parsedResponse = JSON.parse(response);
-                resolve(parsedResponse);
+                const parsedResponse = JSON.parse(response)
+                resolve(parsedResponse)
             } catch (e) {
-                reject(new Error(`Error parseando respuesta del servidor: ${response}`));
+                reject(new Error(`Error parseando respuesta del servidor: ${response}`))
             }
-            socket.end();
-        });
+            socket.end()
+        })
 
-        socket.on('error', (err) => {
-            reject(err);
-            socket.destroy();
-        });
+        socket.on("error", (err) => {
+            reject(err)
+            socket.destroy()
+        })
 
         socket.setTimeout(10000, () => {
-            socket.destroy(new Error('Timeout al esperar respuesta del servidor TCP'));
-        });
-    });
-};
+            socket.destroy(new Error("Timeout al esperar respuesta del servidor TCP"))
+        })
+    })
+}
 
 // --- Funciones de delegación ---
 
-// Función para login (especial, no necesita username en el mensaje, lo recibe como parámetro)
+// Función para login
 const login = (username) => {
     const request = {
-        action: 'LOGIN',
+        action: "LOGIN",
         data: {
-            username: username
-        }
-    };
-    // Para login, no necesitamos un username previo, así que pasamos null o '' al helper
-    // Mejor lo hacemos directamente aquí:
-    return new Promise((resolve, reject) => {
-        const socket = new net.Socket();
+            username: username,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
-        socket.connect(SERVER_PORT, SERVER_HOST, () => {
-            socket.write(JSON.stringify(request));
-            socket.write('\n');
-        });
-
-        socket.once('data', (data) => {
-            const response = data.toString().trim();
-            try {
-                const parsedResponse = JSON.parse(response);
-                resolve(parsedResponse);
-            } catch (e) {
-                reject(new Error(`Error parseando respuesta del servidor: ${response}`));
-            }
-            socket.end();
-        });
-
-        socket.on('error', (err) => {
-            reject(err);
-            socket.destroy();
-        });
-
-        socket.setTimeout(10000, () => {
-            socket.destroy(new Error('Timeout al esperar respuesta del servidor TCP'));
-        });
-    });
-};
+// Función para logout
+const logout = (username) => {
+    const request = {
+        action: "LOGOUT",
+        data: {
+            username: username,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const getActiveUsers = (username) => {
     const request = {
-        action: 'GET_ACTIVE_USERS',
-        data: {}
-    };
-    return sendTcpMessage(request, username);
-};
+        action: "GET_ACTIVE_USERS",
+        data: {
+            username: username, // Para tracking, pero no hace login
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const getAvailableGroups = (username) => {
     const request = {
-        action: 'GET_AVAILABLE_GROUPS',
-        data: {}
-    };
-    return sendTcpMessage(request, username);
-};
+        action: "GET_AVAILABLE_GROUPS",
+        data: {
+            username: username,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const createGroup = (groupName, creatorUsername) => {
     const request = {
-        action: 'CREATE_GROUP',
+        action: "CREATE_GROUP",
         data: {
             groupName: groupName,
-            creatorUsername: creatorUsername
-        }
-    };
-    return sendTcpMessage(request, creatorUsername);
-};
+            creatorUsername: creatorUsername,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const joinGroup = (groupName, username) => {
     const request = {
-        action: 'JOIN_GROUP',
+        action: "JOIN_GROUP",
         data: {
             groupName: groupName,
-            username: username
-        }
-    };
-    return sendTcpMessage(request, username);
-};
+            username: username,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const sendMessageToGroup = (groupName, sender, message) => {
     const request = {
-        action: 'SEND_MESSAGE_TO_GROUP',
+        action: "SEND_MESSAGE_TO_GROUP",
         data: {
             groupName: groupName,
             sender: sender,
-            message: message
-        }
-    };
-    return sendTcpMessage(request, sender);
-};
+            message: message,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const sendPrivateMessage = (fromUser, toUser, message) => {
     const request = {
-        action: 'SEND_PRIVATE_MESSAGE',
+        action: "SEND_PRIVATE_MESSAGE",
         data: {
             fromUser: fromUser,
             toUser: toUser,
-            message: message
-        }
-    };
-    return sendTcpMessage(request, fromUser);
-};
-
-// --- Nuevas funciones para audio ---
+            message: message,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const sendAudioToGroup = (groupName, sender, audioFileName, audioDataBuffer) => {
-    // Convertir el buffer de audio a Base64 para incluirlo en el JSON
-    const audioDataBase64 = audioDataBuffer.toString('base64');
+    const audioDataBase64 = audioDataBuffer.toString("base64")
     const request = {
-        action: 'SEND_AUDIO_TO_GROUP',
+        action: "SEND_AUDIO_TO_GROUP",
         data: {
             groupName: groupName,
             sender: sender,
             audioFileName: audioFileName,
-            audioData: audioDataBase64 // Enviar como Base64
-        }
-    };
-    return sendTcpMessage(request, sender);
-};
+            audioData: audioDataBase64,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 const sendAudioToPrivate = (fromUser, toUser, audioFileName, audioDataBuffer) => {
-    // Convertir el buffer de audio a Base64 para incluirlo en el JSON
-    const audioDataBase64 = audioDataBuffer.toString('base64');
+    const audioDataBase64 = audioDataBuffer.toString("base64")
     const request = {
-        action: 'SEND_AUDIO_TO_PRIVATE',
+        action: "SEND_AUDIO_TO_PRIVATE",
         data: {
             fromUser: fromUser,
             toUser: toUser,
             audioFileName: audioFileName,
-            audioData: audioDataBase64 // Enviar como Base64
-        }
-    };
-    return sendTcpMessage(request, fromUser);
-};
+            audioData: audioDataBase64,
+        },
+    }
+    return sendTcpMessage(request)
+}
+
+// Funciones para obtener historial
+const getPrivateHistory = (user1, user2, requestingUser) => {
+    const request = {
+        action: "GET_PRIVATE_HISTORY",
+        data: {
+            user1: user1,
+            user2: user2,
+            requestingUser: requestingUser,
+        },
+    }
+    return sendTcpMessage(request)
+}
+
+const getGroupHistory = (groupName, requestingUser) => {
+    const request = {
+        action: "GET_GROUP_HISTORY",
+        data: {
+            groupName: groupName,
+            requestingUser: requestingUser,
+        },
+    }
+    return sendTcpMessage(request)
+}
 
 // Exportar las funciones
 module.exports = {
     login,
+    logout,
     getActiveUsers,
     getAvailableGroups,
     createGroup,
@@ -211,4 +192,6 @@ module.exports = {
     sendPrivateMessage,
     sendAudioToGroup,
     sendAudioToPrivate,
-};
+    getPrivateHistory,
+    getGroupHistory,
+}
