@@ -1,36 +1,117 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.springframework.boot' version '3.3.3'
-    id 'io.spring.dependency-management' version '1.1.5'
 }
 
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(22)
-    }
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 repositories {
     mavenCentral()
+    // Repositorio de ZeroC Ice
+    maven {
+        url "https://repo.zeroc.com/nexus/content/repositories/releases"
+    }
 }
 
 application {
     mainClass = 'com.example.chat.TCP.Server'
 }
 
+// ===== TAREAS PARA EJECUTAR DIFERENTES SERVIDORES =====
+
+tasks.register('runTcpServer', JavaExec) {
+    group = 'application'
+    description = 'Ejecuta el servidor TCP principal'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.chat.TCP.Server'
+}
+
+tasks.register('runWebSocketAudioServer', JavaExec) {
+    group = 'application'
+    description = 'Ejecuta el servidor WebSocket para audio'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.chat.websocket.WebSocketAudioServer'
+}
+
+tasks.register('runIceAudioServer', JavaExec) {
+    group = 'application'
+    description = 'Ejecuta el servidor Ice para audio'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.chat.ice.IceAudioServerMain'
+}
+
 tasks.register('runClient', JavaExec) {
+    group = 'application'
+    description = 'Ejecuta el cliente de consola'
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.example.chat.TCP.Client'
 }
 
-dependencies {
-    implementation 'com.google.code.gson:gson:2.10.1'
+// ===== TAREA PARA COMPILAR ARCHIVOS .ICE =====
+
+tasks.register('compileSlice', Exec) {
+    group = 'build'
+    description = 'Compila archivos Slice (.ice) a Java usando slice2java'
+    
+    def sliceDir = file('src/main/slice')
+    def outputDir = file('src/main/java')
+    
+    // Verificar que existe el directorio slice
+    doFirst {
+        if (!sliceDir.exists()) {
+         
+        }
+        outputDir.mkdirs()
+    }
+    
+    // Comando para compilar con slice2java
+    commandLine 'slice2java', 
+                '--output-dir', outputDir.absolutePath,
+                "${sliceDir}/audio.ice"
+    
+    // Inputs y outputs para que Gradle sepa cuándo recompilar
+    inputs.dir(sliceDir)
+    outputs.dir("${outputDir}/CumbiaChat")
+    
+    // Mensaje de ayuda si falla
+    doLast {
+        println "✅ Archivos .ice compilados exitosamente en ${outputDir}"
+    }
 }
 
-tasks.named('test') {
-    useJUnitPlatform()
+// Compilar slice antes de compilar Java (solo si existe el directorio)
+tasks.compileJava.dependsOn {
+    if (file('src/main/slice').exists()) {
+        tasks.compileSlice
+    }
+}
+
+// ===== DEPENDENCIAS =====
+
+dependencies {
+    // Gson para JSON
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    // WebSocket para audio (alternativa simple)
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
+    
+    // ZeroC Ice (para implementación con Ice)
+    implementation 'com.zeroc:ice:3.7.10'
+    implementation 'com.zeroc:glacier2:3.7.10'
+}
+
+// ===== CONFIGURACIÓN ADICIONAL =====
+
+// Mostrar versión de Gradle
+tasks.register('showVersion') {
+    doLast {
+        println "Gradle version: ${gradle.gradleVersion}"
+        println "Java version: ${System.getProperty('java.version')}"
+    }
 }

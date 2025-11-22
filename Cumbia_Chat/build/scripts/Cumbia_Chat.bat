@@ -70,7 +70,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\Cumbia_Chat-0.0.1-SNAPSHOT-plain.jar;%APP_HOME%\lib\gson-2.10.1.jar
+set CLASSPATH=%APP_HOME%\lib\Cumbia_Chat-0.0.1-SNAPSHOT.jar;%APP_HOME%\lib\gson-2.10.1.jar;%APP_HOME%\lib\Java-WebSocket-1.5.3.jar;%APP_HOME%\lib\glacier2-3.7.10.jar;%APP_HOME%\lib\ice-3.7.10.jar;%APP_HOME%\lib\slf4j-api-1.7.25.jar
 
 
 @rem Execute Cumbia_Chat

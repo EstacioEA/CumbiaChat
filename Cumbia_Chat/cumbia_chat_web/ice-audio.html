@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CumbiaChat - Audio con Ice</title>
+    <style>
+        :root {
+            --primary: #FFD700;
+            --primary-dark: #FFA500;
+            --secondary: #FF1744;
+            --background: #1A1A2E;
+            --surface: #16213E;
+            --text-light: #FFFFFF;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--background);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #B0B0B0;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            min-width: 120px;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: var(--background);
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #00E676;
+            color: var(--background);
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #00C853;
+        }
+        
+        .btn-danger {
+            background: var(--secondary);
+            color: white;
+        }
+        
+        .btn-danger:hover:not(:disabled) {
+            background: #D50000;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            background: var(--background);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status p {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .status span {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .log {
+            background: var(--background);
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .log p {
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+        
+        .log::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .log::-webkit-scrollbar-track {
+            background: var(--surface);
+        }
+        
+        .log::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 CumbiaChat Audio</h1>
+        <p class="subtitle">Llamadas de voz con ZeroC Ice</p>
+        
+        <div class="controls">
+            <button id="btnConnect" class="btn-primary">🔌 Conectar Ice</button>
+            <button id="btnStartCall" class="btn-success" disabled>📞 Iniciar Llamada</button>
+            <button id="btnEndCall" class="btn-danger" disabled>📴 Colgar</button>
+        </div>
+        
+        <div class="status">
+            <p>Estado Ice: <span id="iceStatus">Desconectado</span></p>
+            <p>Estado Audio: <span id="audioStatus">Inactivo</span></p>
+            <p>Sala actual: <span id="currentRoom">Ninguna</span></p>
+        </div>
+        
+        <div class="log" id="logContainer">
+            <p>🎵 Cliente Ice listo. Presiona "Conectar Ice" para empezar.</p>
+        </div>
+    </div>
+
+    <!-- Ice.js desde CDN -->
+    <script src="https://cdn.zeroc.com/ice/3.7/ice.min.js"></script>
+    
+    <!-- Cliente Ice personalizado -->
+    <script src="ice-audio-client.js"></script>
+</body>
+</html>
