@@ -19,6 +19,7 @@
 *.tar.gz
 *.rar
 /node_modules
+\CumbiaChat\Cumbia_Chat\cumbia_chat_api_rest\node_modules
 
 
 
