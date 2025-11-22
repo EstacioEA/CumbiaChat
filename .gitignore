@@ -19,7 +19,14 @@
 *.tar.gz
 *.rar
 /node_modules
-\CumbiaChat\Cumbia_Chat\cumbia_chat_api_rest\node_modules
+cumbia_chat_api_rest/node_modules/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
 
 
