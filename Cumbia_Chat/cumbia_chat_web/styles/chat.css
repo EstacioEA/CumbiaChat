@@ -827,4 +827,151 @@ body {
     .btn-send-text {
         display: none;
     }
+
+    /* ===== ESTILOS PARA LLAMADAS DE VOZ ===== */
+
+.btn-call {
+    color: var(--accent) !important;
+    font-size: 1.3rem;
+}
+
+.btn-call:hover {
+    background: var(--accent);
+    color: var(--background) !important;
+    transform: scale(1.2);
+}
+
+.btn-call.in-call {
+    background: var(--secondary);
+    color: white !important;
+    animation: pulse-call 1.5s ease infinite;
+}
+
+@keyframes pulse-call {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Modal de llamada de voz */
+.modal-voice {
+    max-width: 400px;
+    text-align: center;
+}
+
+.voice-call-info {
+    padding: 30px 20px;
+}
+
+.voice-avatar {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    animation: pulse-avatar 2s ease infinite;
+}
+
+@keyframes pulse-avatar {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.voice-call-info h3 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: var(--text-light);
+}
+
+.voice-status {
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.voice-timer {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+    font-family: 'Courier New', monospace;
+}
+
+.voice-controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.btn-voice-mute,
+.btn-voice-end {
+    padding: 15px 30px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-voice-mute {
+    background: var(--surface-light);
+    color: var(--text-light);
+}
+
+.btn-voice-mute:hover {
+    background: var(--accent);
+}
+
+.btn-voice-mute.muted {
+    background: var(--secondary);
+    color: white;
+}
+
+.btn-voice-end {
+    background: var(--secondary);
+    color: white;
+}
+
+.btn-voice-end:hover {
+    background: #D50000;
+    transform: scale(1.05);
+}
+
+.voice-log {
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 15px;
+    background: var(--background);
+    border-radius: 8px;
+    margin-top: 15px;
+    font-size: 0.85rem;
+    text-align: left;
+}
+
+.voice-log p {
+    margin: 5px 0;
+    color: var(--text-muted);
+}
+
+.voice-log::-webkit-scrollbar {
+    width: 6px;
+}
+
+.voice-log::-webkit-scrollbar-track {
+    background: var(--surface);
+}
+
+.voice-log::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
 }

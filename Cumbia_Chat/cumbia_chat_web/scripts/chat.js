@@ -342,41 +342,81 @@ function switchTab(tabName) {
     }
 }
 
-// ===== CHAT =====
+/**
+ * Versión actualizada de openChat con soporte de llamadas
+ */
 async function openChat(name, type) {
-    appState.activeChat = { name, type }
+    appState.activeChat = { name, type };
 
-    elements.emptyChat.style.display = "none"
-    elements.chatContainer.style.display = "flex"
+    elements.emptyChat.style.display = 'none';
+    elements.chatContainer.style.display = 'flex';
 
-    const avatar = type === "group" ? "🎪" : getRandomEmoji(name)
-    elements.chatAvatar.innerHTML = `<span>${avatar}</span>`
-    elements.chatName.textContent = name
-    elements.chatStatus.textContent = type === "group" ? "Grupo" : "En línea"
+    const avatar = type === 'group' ? '🎪' : getRandomEmoji(name);
+    elements.chatAvatar.innerHTML = `<span>${avatar}</span>`;
+    elements.chatName.textContent = name;
+    elements.chatStatus.textContent = type === 'group' ? 'Grupo' : 'En línea';
 
-    elements.messageInput.value = ""
-    clearElement(elements.messagesWrapper)
+    // NUEVO: Mostrar/ocultar botón de llamada
+    const btnVoiceCall = document.getElementById('btnStartVoiceCall');
+    if (btnVoiceCall) {
+        if (type === 'user') {
+            // Solo mostrar en chats privados
+            btnVoiceCall.style.display = 'block';
+            btnVoiceCall.onclick = () => handleVoiceCallClick(name);
+        } else {
+            btnVoiceCall.style.display = 'none';
+        }
+    }
 
-    const loadingMsg = document.createElement("div")
-    loadingMsg.className = "empty-state"
-    loadingMsg.innerHTML = "<p>Cargando historial...</p>"
-    elements.messagesWrapper.appendChild(loadingMsg)
+    elements.messageInput.value = '';
+    clearElement(elements.messagesWrapper);
 
-    await loadChatHistory(name, type)
+    const loadingMsg = document.createElement('div');
+    loadingMsg.className = 'empty-state';
+    loadingMsg.innerHTML = '<p>Cargando historial...</p>';
+    elements.messagesWrapper.appendChild(loadingMsg);
 
-    elements.messageInput.focus()
-    renderUsersList()
-    renderGroupsList()
+    await loadChatHistory(name, type);
 
-    console.log("Chat abierto:", name, type)
+    elements.messageInput.focus();
+    renderUsersList();
+    renderGroupsList();
+
+    console.log('Chat abierto:', name, type);
 }
 
+/**
+ * NUEVA FUNCIÓN: Maneja el click en el botón de llamada
+ */
+async function handleVoiceCallClick(remoteUser) {
+    if (voiceCallManager.isInCall) {
+        // Si ya está en llamada, finalizar
+        await voiceCallManager.endCall();
+    } else {
+        // Iniciar nueva llamada
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+            showToast('Error: Usuario no identificado', 'error');
+            return;
+        }
+        
+        showToast('Iniciando llamada...', 'info');
+        await voiceCallManager.startCall(remoteUser);
+    }
+}
+
+// Guardar referencia a la función original (aunque aquí la redefinimos directamente)
 function closeChat() {
-    appState.activeChat = null
-    elements.emptyChat.style.display = "flex"
-    elements.chatContainer.style.display = "none"
-    renderUsersList()
-    renderGroupsList()
+    // Si hay llamada activa, finalizarla
+    if (typeof voiceCallManager !== 'undefined' && voiceCallManager && voiceCallManager.isInCall) {
+        voiceCallManager.endCall();
+    }
+    
+    appState.activeChat = null;
+    elements.emptyChat.style.display = "flex";
+    elements.chatContainer.style.display = "none";
+    renderUsersList();
+    renderGroupsList();
 }
 
 // ===== MENSAJES =====
@@ -516,3 +556,29 @@ if (document.readyState === "loading") {
     init()
 }
 
+
+
+
+
+
+
+
+
+// STUB TEMPORAL para voiceCallManager (eliminar cuando implementes la verdadera versión)
+const voiceCallManager = {
+    isInCall: false,
+    async startCall(remoteUser) {
+        console.log("📞 Llamada iniciada a:", remoteUser);
+        this.isInCall = true;
+        showToast(`Llamando a ${remoteUser}...`, "info");
+        // Simular finalización después de 5 segundos
+        setTimeout(() => {
+            this.endCall();
+        }, 5000);
+    },
+    async endCall() {
+        console.log("📞 Llamada finalizada");
+        this.isInCall = false;
+        showToast("Llamada finalizada", "info");
+    }
+};

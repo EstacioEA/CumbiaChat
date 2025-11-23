@@ -66,3 +66,25 @@ const buildUrl = (endpoint) => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CONFIG;
 }
+
+// Configuración de Ice para llamadas de voz
+CONFIG.ICE = {
+    SERVER_HOST: 'localhost',
+    SERVER_PORT: 10000,
+    PROTOCOL: 'ws',
+    
+    // Configuración de audio
+    AUDIO: {
+        SAMPLE_RATE: 16000,
+        BUFFER_SIZE: 4096,
+        ECHO_CANCELLATION: true,
+        NOISE_SUPPRESSION: true,
+        AUTO_GAIN_CONTROL: true
+    },
+    
+    // Timeouts
+    TIMEOUTS: {
+        CONNECTION: 10000,  // 10 segundos
+        CALL_SETUP: 15000   // 15 segundos
+    }
+};
