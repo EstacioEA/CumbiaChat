@@ -1,0 +1,2 @@
+[2025-11-10 19:22:42] [TEXT] Juan -> Juan : Hola
+[2025-11-10 19:22:52] [TEXT] Juan -> Juan : Como vas?

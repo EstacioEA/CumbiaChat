@@ -21,6 +21,9 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "multer": "^2.0.2"
+    "ice": "^3.7.100",
+    "multer": "^2.0.2",
+    "slice2js": "^3.7.100",
+    "socket.io": "^4.8.1"
   }
 }

@@ -1,2 +1,11 @@
-rootProject.name = 'Cumbia_Chat'
+// Archivo: CumbiaChat-main/Cumbia_Chat/settings.gradle
 
+pluginManagement {
+    repositories {
+        // Esto es obligatorio para encontrar el plugin de Ice
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'Cumbia_Chat'

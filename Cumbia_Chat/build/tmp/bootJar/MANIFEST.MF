@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
 Main-Class: org.springframework.boot.loader.launch.JarLauncher
-Start-Class: com.example.chat.TCP.Server
+Start-Class: com.example.chat.server.Server
 Spring-Boot-Version: 3.3.3
 Spring-Boot-Classes: BOOT-INF/classes/
 Spring-Boot-Lib: BOOT-INF/lib/

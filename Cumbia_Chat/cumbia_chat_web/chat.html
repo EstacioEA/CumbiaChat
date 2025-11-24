@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="styles/chat.css">
 </head>
 <body>
-    <!-- Navbar Superior -->
     <nav class="navbar">
         <div class="navbar-content">
             <div class="logo-section">
@@ -27,11 +26,8 @@
         </div>
     </nav>
 
-    <!-- Contenedor Principal -->
     <div class="main-container">
-        <!-- Sidebar Izquierdo -->
         <aside class="sidebar">
-            <!-- Tabs de Usuarios y Grupos -->
             <div class="sidebar-tabs">
                 <button class="tab-btn active" data-tab="users">
                     <span class="tab-icon">👥</span>
@@ -43,7 +39,6 @@
                 </button>
             </div>
 
-            <!-- Contenido del Tab de Usuarios -->
             <div class="tab-content active" id="usersTab">
                 <div class="tab-header">
                     <h3>Usuarios Conectados</h3>
@@ -61,7 +56,6 @@
                 </div>
 
                 <div class="list-container" id="usersList">
-                    <!-- Usuarios se cargarán aquí -->
                     <div class="empty-state">
                         <span class="empty-icon">😴</span>
                         <p>No hay usuarios conectados</p>
@@ -69,7 +63,6 @@
                 </div>
             </div>
 
-            <!-- Contenido del Tab de Grupos -->
             <div class="tab-content" id="groupsTab">
                 <div class="tab-header">
                     <h3>Grupos</h3>
@@ -87,7 +80,6 @@
                 </div>
 
                 <div class="list-container" id="groupsList">
-                    <!-- Grupos se cargarán aquí -->
                     <div class="empty-state">
                         <span class="empty-icon">🎭</span>
                         <p>No hay grupos aún</p>
@@ -97,9 +89,7 @@
             </div>
         </aside>
 
-        <!-- Área de Chat -->
         <main class="chat-area">
-            <!-- Estado vacío (cuando no hay chat seleccionado) -->
             <div class="empty-chat" id="emptyChat">
                 <div class="empty-chat-content">
                     <span class="empty-chat-icon">💬</span>
@@ -108,9 +98,7 @@
                 </div>
             </div>
 
-            <!-- Chat activo (oculto inicialmente) -->
             <div class="chat-container" id="chatContainer" style="display: none;">
-                <!-- Header del chat -->
                 <div class="chat-header">
                     <div class="chat-info">
                         <div class="chat-avatar" id="chatAvatar">
@@ -132,14 +120,11 @@
                     </div>
                 </div>
 
-                <!-- Mensajes -->
                 <div class="messages-container" id="messagesContainer">
                     <div class="messages-wrapper" id="messagesWrapper">
-                        <!-- Los mensajes se cargarán aquí -->
-                    </div>
+                        </div>
                 </div>
 
-                <!-- Input de mensaje -->
                 <div class="message-input-container">
                     <form class="message-form" id="messageForm">
                         <textarea 
@@ -153,12 +138,12 @@
                             <button 
                                 type="button" 
                                 class="btn-action" 
-                                id="btnAttach" 
-                                title="Adjuntar (próximamente)"
-                                disabled
+                                id="btnRecord" 
+                                title="Grabar Audio"
                             >
-                                📎
+                                🎤
                             </button>
+                            
                             <button 
                                 type="submit" 
                                 class="btn-send" 
@@ -174,7 +159,6 @@
         </main>
     </div>
 
-    <!-- Modal para crear grupo -->
     <div class="modal-overlay" id="modalCreateGroup" style="display: none;">
         <div class="modal">
             <div class="modal-header">
@@ -213,13 +197,11 @@
         </div>
     </div>
 
-    <!-- Toast de notificaciones -->
     <div class="toast" id="toast" style="display: none;">
         <span class="toast-icon" id="toastIcon">ℹ️</span>
         <span class="toast-message" id="toastMessage">Mensaje</span>
     </div>
 
-    <!-- Loader -->
     <div class="loader-overlay" id="loader" style="display: none;">
         <div class="loader">
             <div class="vinyl-disc"></div>
@@ -227,7 +209,8 @@
         </div>
     </div>
 
-    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+
     <script src="scripts/config.js"></script>
     <script src="scripts/api.js"></script>
     <script src="scripts/utils.js"></script>
