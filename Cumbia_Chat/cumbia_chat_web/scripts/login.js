@@ -1,9 +1,10 @@
 /**
- * Lógica de la página de Login (Adaptada para Ice + Socket.io)
+ * Lógica de la página de Login
+ * ADAPTADA PARA SOCKET.IO + ICE (Mantiene tu estilo y validaciones)
  */
 
-// --- CONEXIÓN SOCKET.IO ---
-const socket = io(); 
+// --- CONEXIÓN SOCKET.IO (Necesaria para Ice) ---
+const socket = io();
 
 // Elementos del DOM
 const loginForm = document.getElementById('loginForm');
@@ -12,6 +13,8 @@ const btnLogin = document.getElementById('btnLogin');
 const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
 const loader = document.getElementById('loader');
+
+// --- FUNCIONES DE UI (Tus funciones originales) ---
 
 function showLoader() {
     loader.style.display = 'flex';
@@ -35,6 +38,7 @@ function hideError() {
 
 function validateUsername(username) {
     const trimmed = username.trim();
+    // Usamos valores default si CONFIG no cargó, para evitar errores
     const minLength = (typeof CONFIG !== 'undefined' && CONFIG.APP) ? CONFIG.APP.MIN_USERNAME_LENGTH : 3;
     const maxLength = (typeof CONFIG !== 'undefined' && CONFIG.APP) ? CONFIG.APP.MAX_USERNAME_LENGTH : 20;
 
@@ -48,6 +52,7 @@ function validateUsername(username) {
 }
 
 function saveSession(username) {
+    // Usamos keys específicas para evitar conflictos
     localStorage.setItem("cumbiachat_username", username);
     localStorage.setItem("cumbiachat_session", Date.now().toString());
 }
@@ -56,15 +61,15 @@ function redirectToChat() {
     window.location.href = 'chat.html';
 }
 
-/**
- * Maneja el submit (USA SOCKET.IO EN LUGAR DE REST)
- */
+// --- LÓGICA DE LOGIN (MODIFICADA PARA SOCKETS) ---
+
 async function handleLogin(event) {
     event.preventDefault();
     hideError();
 
     const username = usernameInput.value;
     const validation = validateUsername(username);
+    
     if (!validation.valid) {
         showError(validation.error);
         usernameInput.focus();
@@ -73,33 +78,40 @@ async function handleLogin(event) {
 
     showLoader();
 
-    // Emitimos evento de login por Socket para conectar con Ice
-    console.log('Login Socket.io:', validation.username);
+    // CAMBIO CLAVE: Login vía Socket.io
+    console.log('Iniciando login via Socket.io para:', validation.username);
     socket.emit('login', { username: validation.username });
 }
 
-// ESCUCHAR RESPUESTA DEL SERVIDOR
+// Escuchar respuesta del servidor (Node + Ice)
 socket.on('login_response', (data) => {
-    hideLoader();
-    if (data.success) {
-        console.log('Login exitoso:', data);
-        saveSession(data.username);
-        setTimeout(() => { redirectToChat(); }, 500);
-    } else {
-        console.error('Error login:', data.message);
-        const errorMsg = data.message || "Error desconocido";
-        if (errorMsg.includes('ya conectado') || errorMsg.includes('already')) {
-            showError("El usuario ya está conectado");
+    // Pequeño delay para que se vea tu animación de vinilo
+    setTimeout(() => {
+        hideLoader();
+        
+        if (data.success) {
+            console.log('Login exitoso:', data);
+            saveSession(data.username);
+            redirectToChat();
         } else {
-            showError(errorMsg);
+            console.error('Error login:', data.message);
+            const errorMsg = data.message || "Error desconocido";
+            
+            if (errorMsg.includes('ya conectado') || errorMsg.includes('already')) {
+                showError("El usuario ya está conectado");
+            } else {
+                showError(errorMsg); // Muestra el error técnico si lo hay
+            }
         }
-    }
+    }, 800); // 800ms de "efecto carga"
 });
 
 socket.on('connect_error', () => {
     hideLoader();
-    showError("No se puede conectar al servidor");
+    showError("No se puede conectar al servidor (Node.js)");
 });
+
+// --- INICIALIZACIÓN (Tu lógica original) ---
 
 function checkExistingSession() {
     const savedUsername = localStorage.getItem("cumbiachat_username");
@@ -108,9 +120,8 @@ function checkExistingSession() {
     if (savedUsername && savedSession) {
         const sessionTime = parseInt(savedSession);
         const currentTime = Date.now();
-        const hoursSinceLogin = (currentTime - sessionTime) / (1000 * 60 * 60);
-
-        if (hoursSinceLogin < 24) {
+        // Sesión válida por 24 horas
+        if ((currentTime - sessionTime) < (24 * 60 * 60 * 1000)) {
             console.log('Sesión activa, redirigiendo...');
             redirectToChat();
         }
@@ -119,6 +130,9 @@ function checkExistingSession() {
 
 function setupInputEffects() {
     usernameInput.addEventListener('input', () => hideError());
+    usernameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') loginForm.dispatchEvent(new Event('submit'));
+    });
 }
 
 function init() {
