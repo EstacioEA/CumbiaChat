@@ -1,5 +1,3 @@
-// cumbia_chat_api_rest/index.js
-
 const express = require("express")
 const cors = require("cors")
 const multer = require("multer")
@@ -21,7 +19,6 @@ app.use(express.json())
 app.use(cors())
 app.use(express.static("../cumbia_chat_web"))
 
-// --- MULTER ---
 const audioStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "temp_uploads/"
@@ -34,21 +31,47 @@ const audioStorage = multer.diskStorage({
 })
 const upload = multer({ storage: audioStorage })
 
-// --- ICE GLOBALS ---
 let communicator
 let chatServicePrx
 let adapter
 
+// Mapa global de username -> socket
+const userSockets = new Map()
+
 class ChatCallbackI extends CumbiaChat.ChatCallback {
+  constructor(username) {
+    super()
+    this.username = username
+  }
+  
   receiveMessage(msg, groupName, current) {
-    console.log(`[JAVA -> NODE] Mensaje: ${msg.type} en ${groupName} de ${msg.sender}`)
-    io.to(groupName).emit("receive_message", {
-      sender: msg.sender,
-      content: msg.content,
-      type: msg.type,
-      date: msg.date,
-      groupName: groupName,
-    })
+    console.log(`[JAVA -> NODE] Mensaje para ${this.username}: ${msg.type} en ${groupName} de ${msg.sender}`)
+    
+    // Buscar el socket actual del usuario en el mapa global
+    const socket = userSockets.get(this.username)
+    
+    if (socket && socket.connected) {
+      socket.emit("receive_message", {
+        sender: msg.sender,
+        content: msg.content,
+        type: msg.type,
+        date: msg.date,
+        groupName: groupName,
+      })
+      console.log(`[JAVA -> NODE] Emitido OK a ${this.username}`)
+    } else {
+      console.log(`[JAVA -> NODE] Socket de ${this.username} no disponible o desconectado`)
+    }
+  }
+}
+
+async function broadcastUsersList() {
+  try {
+    const users = await chatServicePrx.getConnectedUsers()
+    io.emit("users_list", users)
+    console.log("[BROADCAST] Lista de usuarios:", users)
+  } catch (e) {
+    console.error("Error obteniendo usuarios:", e.message)
   }
 }
 
@@ -67,16 +90,13 @@ async function initIce() {
 
     console.log(">>> CONECTADO AL BACKEND JAVA (ICE RPC)")
 
-    // <CHANGE> Crear grupo "general" por defecto al iniciar
     try {
       await chatServicePrx.createGroup("general", "system")
-      console.log(">>> Grupo 'general' creado automáticamente")
+      console.log(">>> Grupo 'general' creado automaticamente")
     } catch (e) {
-      // El grupo ya existe, no es un error
       console.log(">>> Grupo 'general' ya existe")
     }
 
-    // Adaptador Anónimo
     adapter = await communicator.createObjectAdapter("")
     adapter.activate()
     console.log(">>> Adaptador de callbacks activado")
@@ -89,59 +109,87 @@ async function initIce() {
 io.on("connection", (socket) => {
   console.log("Cliente Web:", socket.id)
   let myIdentity = null
+  let myUsername = null
 
   socket.on("login", async (data) => {
+    // Si ya esta logueado con este socket, ignorar
+    if (myUsername === data.username) {
+      console.log(`[WS] Login duplicado ignorado para: ${data.username}`)
+      socket.emit("login_response", { success: true, username: data.username })
+      return
+    }
+    
     console.log(`[WS] Login intento: ${data.username}`)
+    let servantAdded = false
+    
     try {
-      // 1. Ping para asegurar conexión TCP
-      console.log("   1. Enviando Ping a Java...")
       await chatServicePrx.ice_ping()
-      console.log("   ✓ Ping OK")
+      console.log("   Ping OK")
 
-      // 2. Obtener conexión
       const connection = await chatServicePrx.ice_getConnection()
-      if (!connection) throw new Error("Conexión TCP nula")
-      console.log("   ✓ Conexión TCP obtenida")
+      if (!connection) throw new Error("Conexion TCP nula")
+      console.log("   Conexion TCP obtenida")
 
-      // 3. Vincular adaptador (Permite tráfico de vuelta)
       connection.setAdapter(adapter)
-      console.log("   ✓ Adaptador vinculado")
+      console.log("   Adaptador vinculado")
 
-      // 4. Crear Identidad y Servant
       myIdentity = new Ice.Identity(data.username, "user")
-      const servant = new ChatCallbackI()
+      
+      // Remover servant anterior si existe
+      try {
+        adapter.remove(myIdentity)
+        console.log("   Servant anterior removido")
+      } catch (e) {}
+      
+      // Crear servant SIN socket (usara el mapa global)
+      const servant = new ChatCallbackI(data.username)
       adapter.add(servant, myIdentity)
-      console.log("   ✓ Servant registrado localmente")
+      servantAdded = true
+      console.log("   Servant registrado localmente")
 
       const directProxy = adapter.createDirectProxy(myIdentity)
       const cbProxy = CumbiaChat.ChatCallbackPrx.uncheckedCast(directProxy)
-      console.log("   ✓ Callback proxy creado (bidireccional via setAdapter)")
+      console.log("   Callback proxy creado")
 
-      // 5. Login en Java
       console.log("   -> Llamando a Java login()...")
       const success = await chatServicePrx.login(data.username, "", cbProxy)
       console.log(`   <- Respuesta Java: ${success}`)
 
       socket.emit("login_response", { success, username: data.username })
+      
       if (success) {
+        myUsername = data.username
         socket.username = data.username
         
-        // <CHANGE> Unir al usuario al grupo "general" en Java
+        // Registrar socket en mapa global
+        userSockets.set(data.username, socket)
+        console.log(`   Socket registrado para ${data.username}`)
+        
         try {
           await chatServicePrx.joinGroup("general", data.username)
-          console.log(`   ✓ ${data.username} unido al grupo 'general' en Java`)
+          console.log(`   ${data.username} unido al grupo 'general' en Java`)
         } catch (e) {
-          console.log("   ⚠ Error uniendo a general:", e.message)
+          console.log("   Error uniendo a general:", e.message)
         }
         
         socket.join("general")
+        await broadcastUsersList()
+      } else {
+        if (servantAdded && myIdentity) {
+          try {
+            adapter.remove(myIdentity)
+          } catch (x) {}
+        }
+        myIdentity = null
       }
     } catch (e) {
-      console.error("❌ ERROR LOGIN DETALLADO:", e)
-      if (myIdentity)
+      console.error("ERROR LOGIN DETALLADO:", e)
+      if (servantAdded && myIdentity) {
         try {
           adapter.remove(myIdentity)
         } catch (x) {}
+      }
+      myIdentity = null
       socket.emit("login_response", { success: false, message: e.message || "Error Ice" })
     }
   })
@@ -152,21 +200,56 @@ io.on("connection", (socket) => {
       socket.join(d.groupName)
     } catch (e) {}
   })
+  
   socket.on("send_message", async (d) => {
     try {
       await chatServicePrx.sendMessage(d.content, d.sender, d.groupName, d.type || "TEXT")
-    } catch (e) {}
+    } catch (e) {
+      console.error("Error enviando mensaje:", e.message)
+    }
   })
+  
   socket.on("get_groups", async () => {
     try {
       socket.emit("groups_list", await chatServicePrx.getGroups())
     } catch (e) {}
   })
+
+  socket.on("get_users", async () => {
+    try {
+      const users = await chatServicePrx.getConnectedUsers()
+      socket.emit("users_list", users)
+    } catch (e) {
+      console.error("Error obteniendo usuarios:", e.message)
+    }
+  })
+  
   socket.on("disconnect", async () => {
-    if (myIdentity)
+    console.log(`[WS] Desconexion: ${myUsername || socket.id}`)
+    
+    if (myUsername) {
+      // Solo eliminar del mapa si es el socket actual
+      if (userSockets.get(myUsername) === socket) {
+        userSockets.delete(myUsername)
+        console.log(`   Socket removido del mapa para ${myUsername}`)
+      }
+      
+      try {
+        await chatServicePrx.logout(myUsername)
+        console.log(`   Logout en Java para ${myUsername}`)
+      } catch (e) {
+        console.error("   Error en logout Java:", e.message)
+      }
+    }
+    
+    if (myIdentity) {
       try {
         adapter.remove(myIdentity)
+        console.log(`   Servant removido para ${myIdentity.name}`)
       } catch (e) {}
+    }
+    
+    await broadcastUsersList()
   })
 })
 
@@ -195,6 +278,15 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/groups", async (req, res) => {
   try {
     res.json({ status: "success", data: { groups: await chatServicePrx.getGroups() } })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
+app.post("/api/groups", async (req, res) => {
+  try {
+    await chatServicePrx.createGroup(req.body.groupName, req.body.creatorUsername)
+    res.json({ status: "success" })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }

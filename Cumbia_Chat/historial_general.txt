@@ -1,0 +1,3 @@
+[2025-11-25 10:46:46] [TEXT] Juan -> general : Hola
+[2025-11-25 10:52:24] [TEXT] Juan -> general : Hola
+[2025-11-25 11:08:21] [TEXT] Juan -> general : Hola

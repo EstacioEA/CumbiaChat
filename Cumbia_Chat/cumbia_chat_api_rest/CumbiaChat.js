@@ -26,8 +26,6 @@
 
     Slice.defineSequence(CumbiaChat, "AudioDataHelper", "Ice.ByteHelper", true);
 
-    Slice.defineSequence(CumbiaChat, "StringListHelper", "Ice.StringHelper", false);
-
     CumbiaChat.Message = class
     {
         constructor(sender = "", content = "", type = "", date = "")
@@ -64,6 +62,8 @@
 
     Slice.defineSequence(CumbiaChat, "MessageListHelper", "CumbiaChat.Message", false);
 
+    Slice.defineSequence(CumbiaChat, "StringListHelper", "Ice.StringHelper", false);
+
     const iceC_CumbiaChat_ChatCallback_ids = [
         "::CumbiaChat::ChatCallback",
         "::Ice::Object"
@@ -98,6 +98,8 @@
     Slice.defineOperations(CumbiaChat.ChatService, CumbiaChat.ChatServicePrx, iceC_CumbiaChat_ChatService_ids, 0,
     {
         "login": [, , , , [1], [[7], [7], ["CumbiaChat.ChatCallbackPrx"]], , , , ],
+        "logout": [, , , , , [[7]], , , , ],
+        "getConnectedUsers": [, , , , ["CumbiaChat.StringListHelper"], , , , , ],
         "createGroup": [, , , , , [[7], [7]], , , , ],
         "getGroups": [, , , , ["CumbiaChat.StringListHelper"], , , , , ],
         "joinGroup": [, , , , [1], [[7], [7]], , , , ],

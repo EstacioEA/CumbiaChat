@@ -1,9 +1,8 @@
 /**
- * Lógica principal del chat de CumbiaChat
- * VERSIÓN: Socket.io + Audio (ZeroC Ice)
+ * Logica principal del chat de CumbiaChat
+ * VERSION: Socket.io + Audio (ZeroC Ice)
  */
 
-// Inicializar Socket.io
 const socket = io();
 
 // ===== ESTADO =====
@@ -14,7 +13,10 @@ const appState = {
     groups: [],
     isRecording: false,
     mediaRecorder: null,
-    audioChunks: []
+    audioChunks: [],
+    isLoggedIn: false,
+    // Almacenar mensajes por chat
+    chatMessages: {}
 }
 
 // ===== ELEMENTOS DOM =====
@@ -42,48 +44,133 @@ const elements = {
     groupNameInput: document.getElementById("groupName"),
     btnCloseModal: document.getElementById("btnCloseModal"),
     btnCancelGroup: document.getElementById("btnCancelGroup"),
-    // Botón de audio: Si no cambiaste el HTML, busca 'btnRecord' o 'btnAttach'
     btnRecord: document.getElementById("btnRecord") || document.getElementById("btnAttach"),
 }
 
-// ===== SOCKET LISTENERS (LO NUEVO) =====
+// ===== UTILS =====
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatTime(timestamp) {
+    try {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) {
+            return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        }
+        return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+        return new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    }
+}
+
+function getRandomEmoji(name) {
+    const emojis = ['🎸', '🎺', '🥁', '🎷', '🎻', '🎹', '🪘', '🎤', '🎵', '🎶'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return emojis[Math.abs(hash) % emojis.length];
+}
+
+function clearElement(el) { 
+    if (el) el.innerHTML = ""; 
+}
+
+function getChatKey(chatName, chatType) {
+    return `${chatType}:${chatName}`;
+}
+
+// ===== SOCKET LISTENERS =====
 
 socket.on("connect", () => {
     console.log("Conectado a Socket.io");
-    // Si se reconecta (F5), hacemos login silencioso para recuperar Ice
-    if (appState.currentUser) {
-        socket.emit("login", { username: appState.currentUser });
-        socket.emit("get_groups");
+    if (appState.currentUser && !appState.isLoggedIn) {
+        doLogin();
     }
 });
 
-// Recibir mensaje (Texto o Audio)
+socket.on("login_response", (data) => {
+    console.log("Login response:", data);
+    if (data.success) {
+        appState.isLoggedIn = true;
+    }
+});
+
 socket.on("receive_message", (data) => {
     console.log("Mensaje recibido:", data);
     
-    // Solo pintar si es del chat activo
-    if (appState.activeChat && appState.activeChat.name === data.groupName) {
-        const isOwn = data.sender === appState.currentUser;
-        const timestamp = new Date(data.date).getTime(); // Convertir fecha string a ms
-
+    // Determinar la clave del chat
+    // Para privados: groupName es el sender
+    // Para grupos: groupName es el nombre del grupo
+    let chatKey;
+    let chatName;
+    
+    // Si el sender soy yo, es un mensaje que envie (no deberia llegar por callback)
+    if (data.sender === appState.currentUser) {
+        console.log("Ignorando mensaje propio recibido por callback");
+        return;
+    }
+    
+    // Para chats privados, el groupName viene como el nombre del sender
+    chatKey = `private:${data.sender}`;
+    chatName = data.sender;
+    
+    // Verificar si es un grupo
+    if (appState.groups.includes(data.groupName)) {
+        chatKey = `group:${data.groupName}`;
+        chatName = data.groupName;
+    }
+    
+    // Guardar mensaje en el historial
+    if (!appState.chatMessages[chatKey]) {
+        appState.chatMessages[chatKey] = [];
+    }
+    
+    const msgData = {
+        sender: data.sender,
+        content: data.content,
+        type: data.type,
+        timestamp: Date.now(),
+        isOwn: false
+    };
+    
+    appState.chatMessages[chatKey].push(msgData);
+    
+    // Si el chat activo es este, mostrar el mensaje
+    const activeChatKey = appState.activeChat ? getChatKey(appState.activeChat.name, appState.activeChat.type) : null;
+    
+    if (activeChatKey === chatKey) {
         if (data.type === "AUDIO") {
-            addAudioMessageToUI(data.sender, data.content, timestamp, isOwn, true);
+            addAudioMessageToUI(data.sender, data.content, msgData.timestamp, false, true);
         } else {
-            addMessageToUI(data.sender, data.content, timestamp, isOwn, true);
+            addMessageToUI(data.sender, data.content, msgData.timestamp, false, true);
         }
         scrollToBottom();
+    } else {
+        // Notificacion de mensaje en otro chat
+        console.log("Mensaje recibido de otro chat:", chatName);
+        // Aqui podrias agregar una notificacion visual
     }
 });
 
 socket.on("groups_list", (groups) => {
+    console.log("Lista de grupos recibida:", groups);
     appState.groups = groups || [];
     renderGroupsList();
 });
 
-// ===== FUNCIONES UI (Tus funciones + Audio) =====
+socket.on("users_list", (users) => {
+    console.log("Lista de usuarios recibida:", users);
+    appState.users = (users || []).filter(u => u !== appState.currentUser);
+    renderUsersList();
+});
+
+// ===== FUNCIONES UI =====
 
 function addMessageToUI(sender, text, timestamp, isOwn, animate = true) {
-    // Eliminar estado vacío si existe
     const empty = elements.messagesWrapper.querySelector(".empty-state");
     if (empty) empty.remove();
 
@@ -91,7 +178,7 @@ function addMessageToUI(sender, text, timestamp, isOwn, animate = true) {
     messageDiv.className = `message ${isOwn ? "own" : ""}`;
     if (animate) messageDiv.style.animation = "slide-in 0.3s ease";
 
-    const avatar = getRandomEmoji(sender); // Asumo que está en utils.js
+    const avatar = getRandomEmoji(sender);
 
     messageDiv.innerHTML = `
         <div class="message-avatar">${avatar}</div>
@@ -104,7 +191,6 @@ function addMessageToUI(sender, text, timestamp, isOwn, animate = true) {
     elements.messagesWrapper.appendChild(messageDiv);
 }
 
-// Nueva función para pintar notas de voz
 function addAudioMessageToUI(sender, fileName, timestamp, isOwn, animate = true) {
     const empty = elements.messagesWrapper.querySelector(".empty-state");
     if (empty) empty.remove();
@@ -115,7 +201,6 @@ function addAudioMessageToUI(sender, fileName, timestamp, isOwn, animate = true)
 
     const avatar = getRandomEmoji(sender);
 
-    // Burbuja estilo "audio"
     messageDiv.innerHTML = `
         <div class="message-avatar">${avatar}</div>
         <div class="message-content">
@@ -133,26 +218,98 @@ function addAudioMessageToUI(sender, fileName, timestamp, isOwn, animate = true)
     elements.messagesWrapper.appendChild(messageDiv);
 }
 
+function renderUsersList() {
+    clearElement(elements.usersList);
+    if (!appState.users || appState.users.length === 0) {
+        elements.usersList.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">😴</span>
+                <p>No hay usuarios conectados</p>
+            </div>
+        `;
+        return;
+    }
+    appState.users.forEach(username => {
+        const div = document.createElement("div");
+        const isActive = appState.activeChat && appState.activeChat.name === username;
+        div.className = `list-item ${isActive ? "active" : ""}`;
+        div.style.cursor = "pointer";
+        div.innerHTML = `
+            <div class="list-item-avatar">${getRandomEmoji(username)}</div>
+            <div class="list-item-info">
+                <div class="list-item-name">${escapeHtml(username)}</div>
+                <div class="list-item-status online">En linea</div>
+            </div>
+        `;
+        div.onclick = () => openChat(username, "private");
+        elements.usersList.appendChild(div);
+    });
+}
+
+function renderGroupsList() {
+    clearElement(elements.groupsList);
+    if (!appState.groups || appState.groups.length === 0) {
+        elements.groupsList.innerHTML = `<div class="empty-state"><p>No hay grupos</p></div>`;
+        return;
+    }
+    appState.groups.forEach(g => {
+        const div = document.createElement("div");
+        const isActive = appState.activeChat && appState.activeChat.name === g;
+        div.className = `list-item ${isActive ? "active" : ""}`;
+        div.style.cursor = "pointer";
+        div.innerHTML = `<div class="list-item-avatar">🎪</div><div class="list-item-name">${escapeHtml(g)}</div>`;
+        div.onclick = () => openChat(g, "group");
+        elements.groupsList.appendChild(div);
+    });
+}
+
 function scrollToBottom() {
     const container = document.getElementById("messagesContainer");
     if (container) container.scrollTop = container.scrollHeight;
 }
 
-function showEmptyHistory(name) {
+function renderChatMessages(chatKey) {
     clearElement(elements.messagesWrapper);
-    const emptyMsg = document.createElement("div");
-    emptyMsg.className = "empty-state";
-    emptyMsg.innerHTML = `
-        <span class="empty-icon">💬</span>
-        <p>Chat con ${escapeHtml(name)}</p>
-        <small>Envía tu primer mensaje</small>
-    `;
-    elements.messagesWrapper.appendChild(emptyMsg);
+    
+    const messages = appState.chatMessages[chatKey] || [];
+    
+    if (messages.length === 0) {
+        const emptyMsg = document.createElement("div");
+        emptyMsg.className = "empty-state";
+        emptyMsg.innerHTML = `
+            <span class="empty-icon">💬</span>
+            <p>Chat con ${escapeHtml(appState.activeChat.name)}</p>
+            <small>Envia tu primer mensaje</small>
+        `;
+        elements.messagesWrapper.appendChild(emptyMsg);
+        return;
+    }
+    
+    messages.forEach(msg => {
+        if (msg.type === "AUDIO") {
+            addAudioMessageToUI(msg.sender, msg.content, msg.timestamp, msg.isOwn, false);
+        } else {
+            addMessageToUI(msg.sender, msg.content, msg.timestamp, msg.isOwn, false);
+        }
+    });
+    
+    scrollToBottom();
 }
 
-function clearElement(el) { el.innerHTML = ""; }
+// ===== LOGIN =====
+function doLogin() {
+    if (appState.isLoggedIn) {
+        console.log("Ya esta logueado, ignorando login duplicado");
+        return;
+    }
+    
+    console.log("Ejecutando login para:", appState.currentUser);
+    socket.emit("login", { username: appState.currentUser });
+    socket.emit("get_groups");
+    socket.emit("get_users");
+}
 
-// ===== INICIALIZACIÓN =====
+// ===== INICIALIZACION =====
 function init() {
     appState.currentUser = localStorage.getItem("cumbiachat_username");
     if (!appState.currentUser) {
@@ -163,11 +320,9 @@ function init() {
     elements.currentUsername.textContent = appState.currentUser;
     setupEventListeners();
     
-    // Disparar carga inicial
-    socket.emit("login", { username: appState.currentUser });
-    socket.emit("get_groups");
+    doLogin();
 
-    console.log("🎵 CumbiaChat iniciado (WS) -", appState.currentUser);
+    console.log("CumbiaChat iniciado (WS) -", appState.currentUser);
 }
 
 // ===== EVENT LISTENERS =====
@@ -178,38 +333,35 @@ function setupEventListeners() {
         btn.addEventListener("click", () => switchTab(btn.dataset.tab));
     });
     
-    // Grupos
     elements.btnCreateGroup.addEventListener("click", openCreateGroupModal);
     elements.createGroupForm.addEventListener("submit", handleCreateGroup);
     elements.btnCloseModal.addEventListener("click", closeCreateGroupModal);
     elements.btnCancelGroup.addEventListener("click", closeCreateGroupModal);
     
-    // Chat
     elements.messageForm.addEventListener("submit", handleSendMessage);
     elements.btnCloseChat.addEventListener("click", closeChat);
     elements.messageInput.addEventListener("input", autoResizeTextarea);
     
-    // Audio (Configuramos el botón que antes era 'attach')
     if (elements.btnRecord) {
         elements.btnRecord.removeAttribute("disabled");
-        elements.btnRecord.innerText = "🎤"; // Icono inicial
+        elements.btnRecord.innerText = "🎤";
         elements.btnRecord.title = "Grabar nota de voz";
         elements.btnRecord.addEventListener("click", toggleRecording);
     }
 
-    // Modal outside click
     elements.modalCreateGroup.addEventListener("click", (e) => {
         if (e.target === elements.modalCreateGroup) closeCreateGroupModal();
     });
     
-    // Refresh manual
-    elements.btnRefreshUsers.addEventListener("click", () => { socket.emit("get_groups"); });
+    elements.btnRefreshUsers.addEventListener("click", () => { 
+        socket.emit("get_groups"); 
+        socket.emit("get_users");
+    });
 }
 
-// ===== LÓGICA AUDIO (MediaRecorder) =====
+// ===== LOGICA AUDIO =====
 async function toggleRecording() {
     if (!appState.isRecording) {
-        // INICIAR GRABACIÓN
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             appState.mediaRecorder = new MediaRecorder(stream);
@@ -221,26 +373,23 @@ async function toggleRecording() {
 
             appState.mediaRecorder.onstop = async () => {
                 const blob = new Blob(appState.audioChunks, { type: 'audio/webm' });
-                uploadAudio(blob); // Enviar al terminar
+                uploadAudio(blob);
             };
 
             appState.mediaRecorder.start();
             appState.isRecording = true;
             
-            // Feedback Visual
-            elements.btnRecord.innerText = "⏹️"; // Icono Stop
-            elements.btnRecord.classList.add("recording-active"); // Clase para estilo rojo (definir en CSS)
+            elements.btnRecord.innerText = "⏹️";
+            elements.btnRecord.classList.add("recording-active");
             
         } catch (err) {
-            console.error("Error micrófono:", err);
-            alert("No se pudo acceder al micrófono. Revisa permisos.");
+            console.error("Error microfono:", err);
+            alert("No se pudo acceder al microfono. Revisa permisos.");
         }
     } else {
-        // DETENER GRABACIÓN
         appState.mediaRecorder.stop();
         appState.isRecording = false;
         
-        // Restaurar UI
         elements.btnRecord.innerText = "🎤";
         elements.btnRecord.classList.remove("recording-active");
     }
@@ -256,7 +405,6 @@ async function uploadAudio(blob) {
     formData.append("groupName", appState.activeChat.name);
     formData.append("sender", appState.currentUser);
 
-    // Subir vía REST (Híbrido: Mejor para binarios)
     try {
         const res = await fetch("/api/messages/group/audio", {
             method: "POST",
@@ -264,7 +412,18 @@ async function uploadAudio(blob) {
         });
         
         if (res.ok) {
-            // Optimista: Mostrar mi propio audio
+            const chatKey = getChatKey(appState.activeChat.name, appState.activeChat.type);
+            if (!appState.chatMessages[chatKey]) {
+                appState.chatMessages[chatKey] = [];
+            }
+            appState.chatMessages[chatKey].push({
+                sender: appState.currentUser,
+                content: fileName,
+                type: "AUDIO",
+                timestamp: Date.now(),
+                isOwn: true
+            });
+            
             addAudioMessageToUI(appState.currentUser, fileName, Date.now(), true, true);
             scrollToBottom();
         } else {
@@ -282,17 +441,19 @@ function openChat(name, type) {
     elements.chatContainer.style.display = "flex";
     
     elements.chatName.textContent = name;
-    elements.chatStatus.textContent = (type === "group") ? "Grupo" : "Privado";
+    elements.chatStatus.textContent = (type === "group") ? "Grupo" : "Chat Privado";
     
-    clearElement(elements.messagesWrapper);
+    // Renderizar mensajes guardados en lugar de limpiar
+    const chatKey = getChatKey(name, type);
+    renderChatMessages(chatKey);
     
-    // Unirse a sala Socket
     if (type === "group") {
         socket.emit("join_group", { groupName: name, username: appState.currentUser });
     }
     
     elements.messageInput.focus();
-    renderGroupsList(); // Refrescar UI para marcar activo
+    renderGroupsList();
+    renderUsersList();
 }
 
 function closeChat() {
@@ -300,6 +461,7 @@ function closeChat() {
     elements.emptyChat.style.display = "flex";
     elements.chatContainer.style.display = "none";
     renderGroupsList();
+    renderUsersList();
 }
 
 async function handleSendMessage(e) {
@@ -307,7 +469,6 @@ async function handleSendMessage(e) {
     const text = elements.messageInput.value.trim();
     if (!text || !appState.activeChat) return;
 
-    // Enviar por Socket
     socket.emit("send_message", {
         content: text,
         sender: appState.currentUser,
@@ -315,7 +476,19 @@ async function handleSendMessage(e) {
         type: "TEXT"
     });
 
-    // Optimista
+    // Guardar mensaje localmente
+    const chatKey = getChatKey(appState.activeChat.name, appState.activeChat.type);
+    if (!appState.chatMessages[chatKey]) {
+        appState.chatMessages[chatKey] = [];
+    }
+    appState.chatMessages[chatKey].push({
+        sender: appState.currentUser,
+        content: text,
+        type: "TEXT",
+        timestamp: Date.now(),
+        isOwn: true
+    });
+
     addMessageToUI(appState.currentUser, text, Date.now(), true, true);
     elements.messageInput.value = "";
     autoResizeTextarea();
@@ -323,22 +496,6 @@ async function handleSendMessage(e) {
 }
 
 // ===== GRUPOS =====
-function renderGroupsList() {
-    clearElement(elements.groupsList);
-    if (!appState.groups || appState.groups.length === 0) {
-        elements.groupsList.innerHTML = `<div class="empty-state"><p>No hay grupos</p></div>`;
-        return;
-    }
-    appState.groups.forEach(g => {
-        const div = document.createElement("div");
-        const isActive = appState.activeChat && appState.activeChat.name === g;
-        div.className = `list-item ${isActive ? "active" : ""}`;
-        div.innerHTML = `<div class="list-item-avatar">🎪</div><div class="list-item-name">${escapeHtml(g)}</div>`;
-        div.onclick = () => openChat(g, "group");
-        elements.groupsList.appendChild(div);
-    });
-}
-
 function openCreateGroupModal() {
     elements.modalCreateGroup.style.display = "flex";
     elements.groupNameInput.value = "";
@@ -353,7 +510,6 @@ async function handleCreateGroup(e) {
     e.preventDefault();
     const name = elements.groupNameInput.value.trim();
     if (name) {
-        // Crear grupo via REST (que llama a Ice)
         try {
             const res = await fetch("/api/groups", {
                 method: "POST",
@@ -362,7 +518,7 @@ async function handleCreateGroup(e) {
             });
             if (res.ok) {
                 closeCreateGroupModal();
-                socket.emit("get_groups"); // Pedir refresco
+                socket.emit("get_groups");
             } else {
                 alert("Error creando grupo");
             }
@@ -378,7 +534,8 @@ function autoResizeTextarea() {
 }
 
 function handleLogout() {
-    if (confirm("¿Salir?")) {
+    if (confirm("Salir?")) {
+        appState.isLoggedIn = false;
         localStorage.removeItem("cumbiachat_username");
         window.location.href = "index.html";
     }
@@ -388,25 +545,21 @@ function switchTab(tabName) {
     if (tabName === "groups") {
         elements.groupsTab.classList.add("active");
         elements.usersTab.classList.remove("active");
+        document.getElementById("groupsPanel").style.display = "block";
+        document.getElementById("usersPanel").style.display = "none";
         socket.emit("get_groups");
     } else {
         elements.usersTab.classList.add("active");
         elements.groupsTab.classList.remove("active");
+        document.getElementById("usersPanel").style.display = "block";
+        document.getElementById("groupsPanel").style.display = "none";
+        socket.emit("get_users");
     }
 }
 
-// Helpers de filtrado simples
 function filterGroups() {} 
 function filterUsers() {}
-function debounce(func, wait) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), wait);
-    };
-}
 
-// Init
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
 } else {

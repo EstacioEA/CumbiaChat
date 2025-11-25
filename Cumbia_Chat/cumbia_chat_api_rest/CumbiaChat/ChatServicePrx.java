@@ -13,7 +13,7 @@
 // </auto-generated>
 //
 
-package com.example.chat.generated.CumbiaChat;
+package CumbiaChat;
 
 public interface ChatServicePrx extends com.zeroc.Ice.ObjectPrx
 {
