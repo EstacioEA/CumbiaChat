@@ -1,3 +1,5 @@
+// cumbia_chat_api_rest/index.js
+
 const express = require("express")
 const cors = require("cors")
 const multer = require("multer")
@@ -54,7 +56,6 @@ async function initIce() {
   try {
     const initData = new Ice.InitializationData()
     initData.properties = Ice.createProperties()
-    // Propiedades vitales para mantener la conexión viva
     initData.properties.setProperty("Ice.ACM.Client", "0")
     initData.properties.setProperty("Ice.RetryIntervals", "-1")
 
@@ -65,6 +66,15 @@ async function initIce() {
     if (!chatServicePrx) throw Error("Invalid Proxy")
 
     console.log(">>> CONECTADO AL BACKEND JAVA (ICE RPC)")
+
+    // <CHANGE> Crear grupo "general" por defecto al iniciar
+    try {
+      await chatServicePrx.createGroup("general", "system")
+      console.log(">>> Grupo 'general' creado automáticamente")
+    } catch (e) {
+      // El grupo ya existe, no es un error
+      console.log(">>> Grupo 'general' ya existe")
+    }
 
     // Adaptador Anónimo
     adapter = await communicator.createObjectAdapter("")
@@ -103,8 +113,6 @@ io.on("connection", (socket) => {
       adapter.add(servant, myIdentity)
       console.log("   ✓ Servant registrado localmente")
 
-      // createDirectProxy crea un proxy que ICE puede serializar
-      // connection.setAdapter() ya habilita la comunicación bidireccional
       const directProxy = adapter.createDirectProxy(myIdentity)
       const cbProxy = CumbiaChat.ChatCallbackPrx.uncheckedCast(directProxy)
       console.log("   ✓ Callback proxy creado (bidireccional via setAdapter)")
@@ -117,6 +125,15 @@ io.on("connection", (socket) => {
       socket.emit("login_response", { success, username: data.username })
       if (success) {
         socket.username = data.username
+        
+        // <CHANGE> Unir al usuario al grupo "general" en Java
+        try {
+          await chatServicePrx.joinGroup("general", data.username)
+          console.log(`   ✓ ${data.username} unido al grupo 'general' en Java`)
+        } catch (e) {
+          console.log("   ⚠ Error uniendo a general:", e.message)
+        }
+        
         socket.join("general")
       }
     } catch (e) {
@@ -167,7 +184,6 @@ app.post("/api/messages/group/audio", upload.single("audio"), async (req, res) =
 })
 
 app.post("/api/auth/login", async (req, res) => {
-  // Login REST fallback (sin notificaciones)
   try {
     await chatServicePrx.login(req.body.username, "", null)
     res.json({ status: "success", user: req.body.username })

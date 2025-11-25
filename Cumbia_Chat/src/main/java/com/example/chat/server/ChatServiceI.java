@@ -36,9 +36,10 @@ public class ChatServiceI implements ChatService {
                 ChatCallbackPrx fixedCallback = cb.ice_fixed(current.con);
                 System.out.println("  ✓ Callback fijado a conexion bidireccional");
                 
-                System.out.println("  → Haciendo ping al callback...");
-                fixedCallback.ice_ping();
-                System.out.println("  ✓ Ping al callback exitoso");
+                // <CHANGE> Eliminado ice_ping() que causa bloqueo en conexiones bidireccionales con JS
+                // El ping síncrono no funciona correctamente con Ice.js en WebSockets
+                // fixedCallback.ice_ping();  // REMOVIDO
+                System.out.println("  ✓ Callback registrado (sin ping de verificación)");
                 
                 connectedClients.put(username, fixedCallback);
                 System.out.println("  ✓ Usuario registrado");
