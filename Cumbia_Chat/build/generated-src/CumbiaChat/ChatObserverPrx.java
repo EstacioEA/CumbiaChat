@@ -17,84 +17,6 @@ package CumbiaChat;
 
 public interface ChatObserverPrx extends com.zeroc.Ice.ObjectPrx
 {
-    default void receiveAudioStream(String fromUser, byte[] data)
-    {
-        receiveAudioStream(fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
-    }
-
-    default void receiveAudioStream(String fromUser, byte[] data, java.util.Map<String, String> context)
-    {
-        _iceI_receiveAudioStreamAsync(fromUser, data, context, true).waitForResponse();
-    }
-
-    default java.util.concurrent.CompletableFuture<Void> receiveAudioStreamAsync(String fromUser, byte[] data)
-    {
-        return _iceI_receiveAudioStreamAsync(fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
-    }
-
-    default java.util.concurrent.CompletableFuture<Void> receiveAudioStreamAsync(String fromUser, byte[] data, java.util.Map<String, String> context)
-    {
-        return _iceI_receiveAudioStreamAsync(fromUser, data, context, false);
-    }
-
-    /**
-     * @hidden
-     * @param iceP_fromUser -
-     * @param iceP_data -
-     * @param context -
-     * @param sync -
-     * @return -
-     **/
-    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_receiveAudioStreamAsync(String iceP_fromUser, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
-    {
-        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "receiveAudioStream", null, sync, null);
-        f.invoke(false, context, null, ostr -> {
-                     ostr.writeString(iceP_fromUser);
-                     ostr.writeByteSeq(iceP_data);
-                 }, null);
-        return f;
-    }
-
-    default void receiveAudioMessage(String fromUser, String audioId, byte[] data)
-    {
-        receiveAudioMessage(fromUser, audioId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
-    }
-
-    default void receiveAudioMessage(String fromUser, String audioId, byte[] data, java.util.Map<String, String> context)
-    {
-        _iceI_receiveAudioMessageAsync(fromUser, audioId, data, context, true).waitForResponse();
-    }
-
-    default java.util.concurrent.CompletableFuture<Void> receiveAudioMessageAsync(String fromUser, String audioId, byte[] data)
-    {
-        return _iceI_receiveAudioMessageAsync(fromUser, audioId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
-    }
-
-    default java.util.concurrent.CompletableFuture<Void> receiveAudioMessageAsync(String fromUser, String audioId, byte[] data, java.util.Map<String, String> context)
-    {
-        return _iceI_receiveAudioMessageAsync(fromUser, audioId, data, context, false);
-    }
-
-    /**
-     * @hidden
-     * @param iceP_fromUser -
-     * @param iceP_audioId -
-     * @param iceP_data -
-     * @param context -
-     * @param sync -
-     * @return -
-     **/
-    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_receiveAudioMessageAsync(String iceP_fromUser, String iceP_audioId, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
-    {
-        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "receiveAudioMessage", null, sync, null);
-        f.invoke(false, context, null, ostr -> {
-                     ostr.writeString(iceP_fromUser);
-                     ostr.writeString(iceP_audioId);
-                     ostr.writeByteSeq(iceP_data);
-                 }, null);
-        return f;
-    }
-
     default void incomingCall(String fromUser)
     {
         incomingCall(fromUser, com.zeroc.Ice.ObjectPrx.noExplicitContext);
@@ -235,6 +157,84 @@ public interface ChatObserverPrx extends com.zeroc.Ice.ObjectPrx
         com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "callEnded", null, sync, null);
         f.invoke(false, context, null, ostr -> {
                      ostr.writeString(iceP_fromUser);
+                 }, null);
+        return f;
+    }
+
+    default void receiveAudioStream(String fromUser, byte[] data)
+    {
+        receiveAudioStream(fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void receiveAudioStream(String fromUser, byte[] data, java.util.Map<String, String> context)
+    {
+        _iceI_receiveAudioStreamAsync(fromUser, data, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> receiveAudioStreamAsync(String fromUser, byte[] data)
+    {
+        return _iceI_receiveAudioStreamAsync(fromUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> receiveAudioStreamAsync(String fromUser, byte[] data, java.util.Map<String, String> context)
+    {
+        return _iceI_receiveAudioStreamAsync(fromUser, data, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_fromUser -
+     * @param iceP_data -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_receiveAudioStreamAsync(String iceP_fromUser, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "receiveAudioStream", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_fromUser);
+                     ostr.writeByteSeq(iceP_data);
+                 }, null);
+        return f;
+    }
+
+    default void receiveAudioMessage(String fromUser, String audioId, byte[] data)
+    {
+        receiveAudioMessage(fromUser, audioId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void receiveAudioMessage(String fromUser, String audioId, byte[] data, java.util.Map<String, String> context)
+    {
+        _iceI_receiveAudioMessageAsync(fromUser, audioId, data, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> receiveAudioMessageAsync(String fromUser, String audioId, byte[] data)
+    {
+        return _iceI_receiveAudioMessageAsync(fromUser, audioId, data, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> receiveAudioMessageAsync(String fromUser, String audioId, byte[] data, java.util.Map<String, String> context)
+    {
+        return _iceI_receiveAudioMessageAsync(fromUser, audioId, data, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_fromUser -
+     * @param iceP_audioId -
+     * @param iceP_data -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_receiveAudioMessageAsync(String iceP_fromUser, String iceP_audioId, byte[] iceP_data, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "receiveAudioMessage", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_fromUser);
+                     ostr.writeString(iceP_audioId);
+                     ostr.writeByteSeq(iceP_data);
                  }, null);
         return f;
     }

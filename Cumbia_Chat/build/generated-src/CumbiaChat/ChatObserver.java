@@ -17,10 +17,6 @@ package CumbiaChat;
 
 public interface ChatObserver extends com.zeroc.Ice.Object
 {
-    void receiveAudioStream(String fromUser, byte[] data, com.zeroc.Ice.Current current);
-
-    void receiveAudioMessage(String fromUser, String audioId, byte[] data, com.zeroc.Ice.Current current);
-
     void incomingCall(String fromUser, com.zeroc.Ice.Current current);
 
     void callAccepted(String fromUser, com.zeroc.Ice.Current current);
@@ -28,6 +24,10 @@ public interface ChatObserver extends com.zeroc.Ice.Object
     void callRejected(String fromUser, com.zeroc.Ice.Current current);
 
     void callEnded(String fromUser, com.zeroc.Ice.Current current);
+
+    void receiveAudioStream(String fromUser, byte[] data, com.zeroc.Ice.Current current);
+
+    void receiveAudioMessage(String fromUser, String audioId, byte[] data, com.zeroc.Ice.Current current);
 
     /** @hidden */
     static final String[] _iceIds =
@@ -51,48 +51,6 @@ public interface ChatObserver extends com.zeroc.Ice.Object
     static String ice_staticId()
     {
         return "::CumbiaChat::ChatObserver";
-    }
-
-    /**
-     * @hidden
-     * @param obj -
-     * @param inS -
-     * @param current -
-     * @return -
-    **/
-    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_receiveAudioStream(ChatObserver obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
-    {
-        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
-        com.zeroc.Ice.InputStream istr = inS.startReadParams();
-        String iceP_fromUser;
-        byte[] iceP_data;
-        iceP_fromUser = istr.readString();
-        iceP_data = istr.readByteSeq();
-        inS.endReadParams();
-        obj.receiveAudioStream(iceP_fromUser, iceP_data, current);
-        return inS.setResult(inS.writeEmptyParams());
-    }
-
-    /**
-     * @hidden
-     * @param obj -
-     * @param inS -
-     * @param current -
-     * @return -
-    **/
-    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_receiveAudioMessage(ChatObserver obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
-    {
-        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
-        com.zeroc.Ice.InputStream istr = inS.startReadParams();
-        String iceP_fromUser;
-        String iceP_audioId;
-        byte[] iceP_data;
-        iceP_fromUser = istr.readString();
-        iceP_audioId = istr.readString();
-        iceP_data = istr.readByteSeq();
-        inS.endReadParams();
-        obj.receiveAudioMessage(iceP_fromUser, iceP_audioId, iceP_data, current);
-        return inS.setResult(inS.writeEmptyParams());
     }
 
     /**
@@ -164,6 +122,48 @@ public interface ChatObserver extends com.zeroc.Ice.Object
         iceP_fromUser = istr.readString();
         inS.endReadParams();
         obj.callEnded(iceP_fromUser, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_receiveAudioStream(ChatObserver obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_fromUser;
+        byte[] iceP_data;
+        iceP_fromUser = istr.readString();
+        iceP_data = istr.readByteSeq();
+        inS.endReadParams();
+        obj.receiveAudioStream(iceP_fromUser, iceP_data, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_receiveAudioMessage(ChatObserver obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_fromUser;
+        String iceP_audioId;
+        byte[] iceP_data;
+        iceP_fromUser = istr.readString();
+        iceP_audioId = istr.readString();
+        iceP_data = istr.readByteSeq();
+        inS.endReadParams();
+        obj.receiveAudioMessage(iceP_fromUser, iceP_audioId, iceP_data, current);
         return inS.setResult(inS.writeEmptyParams());
     }
 

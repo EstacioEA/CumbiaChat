@@ -1,376 +1,364 @@
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer'); // <-- Importar multer
-const path = require('path'); // <-- Importar path para manejar extensiones
-const {
-    login,
-    getActiveUsers,
-    getAvailableGroups,
-    createGroup,
-    joinGroup,
-    sendMessageToGroup,
-    sendPrivateMessage,
-    sendAudioToGroup, // <-- Importar la nueva función
-    sendAudioToPrivate, // <-- Importar la nueva función
-    // ... importar más funciones según necesites
-} = require("./services/cumbiaChatDelegateService");
+const bodyParser = require('body-parser');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const cumbiaChatDelegate = require('./services/cumbiaChatDelegateService');
+const iceDelegate = require('./services/iceDelegate');
 
 const app = express();
 const PORT = 5000;
 
-app.use(express.json());
+// Middleware
 app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configuración de Multer para manejar archivos de audio (limitar tamaño si es necesario)
-const audioStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        // Opcional: crear carpeta temporal si no existe
-        cb(null, 'temp_uploads/'); // Asegúrate de crear esta carpeta o usar memoria
+// Configuracion de multer para subida de archivos
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = path.join(__dirname, 'temp_uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
     },
-    filename: (req, file, cb) => {
-        // Generar un nombre único para evitar colisiones
+    filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        // Mantener la extensión original del archivo
         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
 
-// Filtro para permitir solo archivos de audio (opcional)
-const audioFileFilter = (req, file, cb) => {
-    // Aceptar solo archivos con tipo MIME de audio
-    if (file.mimetype.startsWith('audio/')) {
-        cb(null, true);
-    } else {
-        cb(new Error('Solo se permiten archivos de audio.'), false);
-    }
-};
+const upload = multer({ storage: storage });
 
-const upload = multer({
-    storage: audioStorage,
-    fileFilter: audioFileFilter,
-    // Puedes limitar el tamaño aquí si es necesario, por ejemplo: limits: { fileSize: 10 * 1024 * 1024 } // 10MB
-});
+// ========== ENDPOINTS DE AUTENTICACION ==========
 
-
-// --- Definir Rutas de la API REST ---
-
-// Ruta para login
-app.post("/api/auth/login", async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
     const { username } = req.body;
-    console.log("Intento de login:", { username });
-
-    if (!username) {
-        return res.status(400).json({ error: "Nombre de usuario es requerido." });
-    }
+    console.log('Registrando usuario:', username);
 
     try {
-        const response = await login(username);
-        if(response.status === 'success') {
-            res.status(200).json({ status: 'success', message: response.message, user: username });
-        } else {
-            res.status(401).json({ status: 'error', message: response.message || 'Error de autenticación' });
-        }
+        const response = await cumbiaChatDelegate.login(username);
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en POST /api/auth/login:", error);
+        console.error('Error en POST /api/auth/register:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Rutas que requieren un usuario logueado (simulado)
-app.get("/api/users", async (req, res) => {
-    const loggedInUser = req.query.user || req.body.user || 'TestUser';
-    console.log("Obteniendo usuarios activos para:", loggedInUser);
+app.post('/api/auth/logout', async (req, res) => {
+    const { username } = req.body;
+    console.log('Cerrando sesion:', username);
 
     try {
-        const response = await getActiveUsers(loggedInUser);
-        if(response.status === 'success') {
-            res.status(200).json(response.data);
-        } else {
-            res.status(500).json({ error: response.message || 'Error obteniendo usuarios' });
-        }
+        const response = await cumbiaChatDelegate.logout(username);
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en GET /api/users:", error);
+        console.error('Error en POST /api/auth/logout:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.get("/api/groups", async (req, res) => {
-    const loggedInUser = req.query.user || req.body.user || 'TestUser';
-    console.log("Obteniendo grupos disponibles para:", loggedInUser);
+// ========== ENDPOINTS DE USUARIOS Y GRUPOS ==========
+
+app.get('/api/users/active', async (req, res) => {
+    const { username } = req.query;
+    console.log('Obteniendo usuarios activos para:', username);
 
     try {
-        const response = await getAvailableGroups(loggedInUser);
-        if(response.status === 'success') {
-            res.status(200).json(response.data);
-        } else {
-            res.status(500).json({ error: response.message || 'Error obteniendo grupos' });
-        }
+        const response = await cumbiaChatDelegate.getActiveUsers(username);
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en GET /api/groups:", error);
+        console.error('Error en GET /api/users/active:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.post("/api/groups", async (req, res) => {
-    const { groupName, creatorUsername } = req.body;
-    console.log("Creando grupo:", { groupName, creatorUsername });
+app.get('/api/groups/available', async (req, res) => {
+    const { username } = req.query;
+    console.log('Obteniendo grupos disponibles para:', username);
 
     try {
-        const response = await createGroup(groupName, creatorUsername);
-        if(response.status === 'success') {
-            res.status(200).json({ message: response.message || "Grupo creado exitosamente." });
-        } else {
-            res.status(400).json({ error: response.message || 'Error creando grupo' });
-        }
+        const response = await cumbiaChatDelegate.getAvailableGroups(username);
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en POST /api/groups:", error);
+        console.error('Error en GET /api/groups/available:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.post("/api/groups/join", async (req, res) => {
+app.post('/api/groups/create', async (req, res) => {
+    const { groupName, creator } = req.body;
+    console.log('Creando grupo:', groupName, 'creador:', creator);
+
+    try {
+        const response = await cumbiaChatDelegate.createGroup(groupName, creator);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('Error en POST /api/groups/create:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/groups/join', async (req, res) => {
     const { groupName, username } = req.body;
-    console.log("Uniéndose a grupo:", { groupName, username });
+    console.log('Usuario', username, 'uniendose al grupo:', groupName);
 
     try {
-        const response = await joinGroup(groupName, username);
-        if(response.status === 'success') {
-            res.status(200).json({ message: response.message || "Usuario se unió al grupo." });
-        } else {
-            res.status(400).json({ error: response.message || 'Error uniéndose al grupo' });
-        }
+        const response = await cumbiaChatDelegate.joinGroup(groupName, username);
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en POST /api/groups/join:", error);
+        console.error('Error en POST /api/groups/join:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.post("/api/messages/group", async (req, res) => {
-    const { groupName, sender, message } = req.body;
-    console.log("Enviando mensaje a grupo:", { groupName, sender, message });
+// ========== ENDPOINTS DE MENSAJES ==========
 
-    try {
-        const response = await sendMessageToGroup(groupName, sender, message);
-        if(response.status === 'success') {
-            res.status(200).json({ message: response.message || "Mensaje enviado." });
-        } else {
-            res.status(400).json({ error: response.message || 'Error enviando mensaje' });
-        }
-    } catch (error) {
-        console.error("Error en POST /api/messages/group:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post("/api/messages/private", async (req, res) => {
+app.post('/api/messages/private', async (req, res) => {
     const { fromUser, toUser, message } = req.body;
-    console.log("Enviando mensaje privado:", { fromUser, toUser, message });
+    console.log('Mensaje privado:', fromUser, '->', toUser);
 
     try {
-        const response = await sendPrivateMessage(fromUser, toUser, message);
-        if(response.status === 'success') {
-            res.status(200).json({ message: response.message || "Mensaje privado enviado." });
-        } else {
-            res.status(400).json({ error: response.message || 'Error enviando mensaje privado' });
-        }
+        const response = await cumbiaChatDelegate.sendPrivateMessage(fromUser, toUser, message);
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en POST /api/messages/private:", error);
+        console.error('Error en POST /api/messages/private:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Ruta para logout
-app.post("/api/auth/logout", async (req, res) => {
-    const { username } = req.body;
-    console.log("Intento de logout:", { username });
+app.post('/api/messages/group', async (req, res) => {
+    const { groupName, sender, message } = req.body;
+    console.log('Mensaje a grupo:', sender, '->', groupName);
+
+    try {
+        const response = await cumbiaChatDelegate.sendMessageToGroup(groupName, sender, message);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('Error en POST /api/messages/group:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ENDPOINTS DE HISTORIAL ==========
+
+app.get('/api/history/private', async (req, res) => {
+    const { user1, user2, requester } = req.query;
+    console.log('Obteniendo historial privado:', user1, '<->', user2);
+
+    try {
+        const response = await cumbiaChatDelegate.getPrivateHistory(user1, user2, requester);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('Error en GET /api/history/private:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/history/group', async (req, res) => {
+    const { groupName, requester } = req.query;
+    console.log('Obteniendo historial de grupo:', groupName);
+
+    try {
+        const response = await cumbiaChatDelegate.getGroupHistory(groupName, requester);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('Error en GET /api/history/group:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== ENDPOINTS ICE PARA LLAMADAS ==========
+
+app.post('/api/calls/start', async (req, res) => {
+    const { fromUser, toUser } = req.body;
+    console.log('[Ice] Iniciando llamada:', fromUser, '->', toUser);
+
+    if (!fromUser || !toUser) {
+        return res.status(400).json({ 
+            status: 'error',
+            error: 'fromUser y toUser son requeridos' 
+        });
+    }
+
+    try {
+        const response = await iceDelegate.startCall(fromUser, toUser);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('[Ice] Error en POST /api/calls/start:', error);
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
+    }
+});
+
+app.post('/api/calls/accept', async (req, res) => {
+    const { fromUser, toUser } = req.body;
+    console.log('[Ice] Aceptando llamada:', fromUser, '<-', toUser);
+
+    try {
+        const response = await iceDelegate.acceptCall(fromUser, toUser);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('[Ice] Error en POST /api/calls/accept:', error);
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
+    }
+});
+
+app.post('/api/calls/reject', async (req, res) => {
+    const { fromUser, toUser } = req.body;
+    console.log('[Ice] Rechazando llamada:', fromUser, '<-', toUser);
+
+    try {
+        const response = await iceDelegate.rejectCall(fromUser, toUser);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('[Ice] Error en POST /api/calls/reject:', error);
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
+    }
+});
+
+app.post('/api/calls/end', async (req, res) => {
+    const { fromUser, toUser } = req.body;
+    console.log('[Ice] Finalizando llamada:', fromUser, '<->', toUser);
+
+    try {
+        const response = await iceDelegate.endCall(fromUser, toUser);
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('[Ice] Error en POST /api/calls/end:', error);
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
+    }
+});
+
+// ========== ENDPOINTS PARA MENSAJES DE AUDIO ==========
+
+app.post('/api/messages/private/audio', upload.single('audio'), async (req, res) => {
+    const { fromUser, toUser } = req.body;
+    console.log('[Audio] Enviando audio privado:', fromUser, '->', toUser);
+
+    if (!req.file) {
+        return res.status(400).json({ 
+            status: 'error',
+            error: 'No se recibio archivo de audio' 
+        });
+    }
+
+    try {
+        const audioBuffer = fs.readFileSync(req.file.path);
+        const response = await iceDelegate.sendAudioMessage(fromUser, toUser, audioBuffer);
+        
+        // Limpiar archivo temporal
+        fs.unlinkSync(req.file.path);
+        
+        res.status(200).json(response);
+    } catch (error) {
+        console.error('[Audio] Error en POST /api/messages/private/audio:', error);
+        
+        // Limpiar archivo temporal en caso de error
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
+    }
+});
+
+// Nuevo endpoint para consultar llamadas pendientes
+app.get('/api/calls/pending', async (req, res) => {
+    const { username } = req.query;
+    console.log('[Ice] Consultando llamadas pendientes para:', username);
 
     if (!username) {
-        return res.status(400).json({ error: "Nombre de usuario es requerido." });
+        return res.status(400).json({ 
+            error: 'username es requerido' 
+        });
     }
 
     try {
-        // Crear el mensaje de logout
-        const logoutMessage = {
-            action: 'LOGOUT',
-            data: {
-                username: username
-            }
-        };
-
-        // Enviar al backend
-        const net = require('net');
-        const socket = new net.Socket();
-
-        socket.connect(12345, 'localhost', () => {
-            socket.write(JSON.stringify(logoutMessage));
-            socket.write('\n');
+        const calls = await iceDelegate.getPendingCalls(username);
+        res.status(200).json({ 
+            pendingCalls: calls || []
         });
-
-        socket.once('data', (data) => {
-            try {
-                const response = JSON.parse(data.toString().trim());
-                res.status(200).json(response);
-            } catch (e) {
-                res.status(500).json({ error: 'Error procesando respuesta' });
-            }
-            socket.end();
-        });
-
-        socket.on('error', (err) => {
-            console.error("Error en logout:", err);
-            res.status(500).json({ error: err.message });
-            socket.destroy();
-        });
-
-        socket.setTimeout(5000, () => {
-            socket.destroy(new Error('Timeout en logout'));
-        });
-
     } catch (error) {
-        console.error("Error en POST /api/auth/logout:", error);
+        console.error('[Ice] Error en GET /api/calls/pending:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// --- Nuevos endpoints para audio ---
-
-// Endpoint para enviar audio a un grupo
-// Se espera que el frontend envíe:
-// - Campo 'groupName' (string) en el body
-// - Campo 'sender' (string) en el body (debe coincidir con el usuario logueado)
-// - Archivo de audio en el campo 'audio' (usando multipart/form-data)
-app.post("/api/messages/group/audio", upload.single('audio'), async (req, res) => {
-    // req.file contiene la información del archivo subido
-    if (!req.file) {
-        return res.status(400).json({ error: 'No se subió ningún archivo de audio.' });
-    }
-
-    const { groupName, sender } = req.body; // Datos del formulario
-    console.log("Enviando audio a grupo:", { groupName, sender, fileName: req.file.originalname, path: req.file.path });
-
-    // Validar campos requeridos
-    if (!groupName || !sender) {
-        return res.status(400).json({ error: "Nombre del grupo y nombre del remitente son requeridos." });
-    }
-
-    // Validar que el emisor sea el usuario logueado (simulado aquí)
-    // if(sender !== loggedInUserFromToken) { return res.status(403).json({...}) }
+app.post('/api/calls/clear-pending', async (req, res) => {
+    const { username, fromUser } = req.body;
+    console.log('[Ice] Limpiando llamada pendiente:', fromUser, '->', username);
 
     try {
-        // Leer el archivo subido como buffer
-        const fs = require('fs');
-        const audioBuffer = fs.readFileSync(req.file.path); // Lee el archivo desde la ubicación temporal
-        const audioFileName = req.file.originalname; // Usa el nombre original o el generado por multer
-
-        const response = await sendAudioToGroup(groupName, sender, audioFileName, audioBuffer);
-
-        // Opcional: Eliminar el archivo temporal después de enviarlo
-        fs.unlinkSync(req.file.path);
-
-        if(response.status === 'success') {
-            res.status(200).json({ message: response.message || "Audio enviado al grupo." });
-        } else {
-            res.status(400).json({ error: response.message || 'Error enviando audio al grupo' });
-        }
+        await iceDelegate.clearPendingCall(username, fromUser);
+        res.status(200).json({ status: 'success' });
     } catch (error) {
-        console.error("Error en POST /api/messages/group/audio:", error);
-        // Opcional: Eliminar el archivo temporal si ocurre un error
-        if (req.file && req.file.path) {
-            try { fs.unlinkSync(req.file.path); } catch (unlinkErr) { console.error("Error eliminando archivo temporal:", unlinkErr); }
-        }
+        console.error('[Ice] Error en POST /api/calls/clear-pending:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 
-// Endpoint para enviar audio en mensaje privado
-// Se espera que el frontend envíe:
-// - Campo 'toUser' (string) en el body
-// - Campo 'fromUser' (string) en el body (debe coincidir con el usuario logueado)
-// - Archivo de audio en el campo 'audio' (usando multipart/form-data)
-app.post("/api/messages/private/audio", upload.single('audio'), async (req, res) => {
+app.post('/api/messages/group/audio', upload.single('audio'), async (req, res) => {
+    const { sender, groupName } = req.body;
+    console.log('[Audio] Enviando audio a grupo:', sender, '->', groupName);
+
     if (!req.file) {
-        return res.status(400).json({ error: 'No se subió ningún archivo de audio.' });
+        return res.status(400).json({ 
+            status: 'error',
+            error: 'No se recibio archivo de audio' 
+        });
     }
-
-    const { toUser, fromUser } = req.body; // Datos del formulario
-    console.log("Enviando audio privado:", { toUser, fromUser, fileName: req.file.originalname, path: req.file.path });
-
-    if (!toUser || !fromUser) {
-        return res.status(400).json({ error: "Nombre del destinatario y nombre del remitente son requeridos." });
-    }
-
-    // Validar que el emisor sea el usuario logueado (simulado aquí)
-    // if(fromUser !== loggedInUserFromToken) { return res.status(403).json({...}) }
 
     try {
-        const fs = require('fs');
         const audioBuffer = fs.readFileSync(req.file.path);
-        const audioFileName = req.file.originalname;
-
-        const response = await sendAudioToPrivate(fromUser, toUser, audioFileName, audioBuffer);
-
-        fs.unlinkSync(req.file.path); // Eliminar temporal
-
-        if(response.status === 'success') {
-            res.status(200).json({ message: response.message || "Audio enviado en mensaje privado." });
-        } else {
-            res.status(400).json({ error: response.message || 'Error enviando audio privado' });
-        }
+        const response = await iceDelegate.sendAudioMessageToGroup(sender, groupName, audioBuffer);
+        
+        // Limpiar archivo temporal
+        fs.unlinkSync(req.file.path);
+        
+        res.status(200).json(response);
     } catch (error) {
-        console.error("Error en POST /api/messages/private/audio:", error);
-        if (req.file && req.file.path) {
-            try { fs.unlinkSync(req.file.path); } catch (unlinkErr) { console.error("Error eliminando archivo temporal:", unlinkErr); }
+        console.error('[Audio] Error en POST /api/messages/group/audio:', error);
+        
+        // Limpiar archivo temporal en caso de error
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
         }
-        res.status(500).json({ error: error.message });
+        
+        res.status(500).json({ 
+            status: 'error',
+            error: error.message 
+        });
     }
 });
 
+// Manejar cierre limpio
+process.on('SIGINT', async () => {
+    console.log('\n[Server] Cerrando proxy...');
+    if (iceDelegate.shutdown) {
+        await iceDelegate.shutdown();
+    }
+    process.exit(0);
+});
+
+// Iniciar servidor
 app.listen(PORT, () => {
-    console.log(`Servidor API REST CumbiaChat iniciado en http://localhost:${PORT}`);
-});
-
-
-// Endpoint para obtener historial de chat privado
-app.get("/api/history/private/:user1/:user2", async (req, res) => {
-    const { user1, user2 } = req.params;
-    const requestingUser = req.query.user || user1;
-    
-    console.log(`Obteniendo historial privado: ${user1} <-> ${user2}`);
-    
-    try {
-        const {getPrivateHistory} = require("./services/cumbiaChatDelegateService");
-        const response = await getPrivateHistory(user1, user2, requestingUser);
-        
-        if(response.status === 'success') {
-            res.status(200).json(response.data);
-        } else {
-            res.status(500).json({ error: response.message || 'Error obteniendo historial' });
-        }
-    } catch (error) {
-        console.error("Error en GET /api/history/private:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Endpoint para obtener historial de grupo
-app.get("/api/history/group/:groupName", async (req, res) => {
-    const { groupName } = req.params;
-    const requestingUser = req.query.user;
-    
-    console.log(`Obteniendo historial de grupo: ${groupName}`);
-    
-    try {
-        const {getGroupHistory} = require("./services/cumbiaChatDelegateService");
-        const response = await getGroupHistory(groupName, requestingUser);
-        
-        if(response.status === 'success') {
-            res.status(200).json(response.data);
-        } else {
-            res.status(500).json({ error: response.message || 'Error obteniendo historial' });
-        }
-    } catch (error) {
-        console.error("Error en GET /api/history/group:", error);
-        res.status(500).json({ error: error.message });
-    }
+    console.log(`[Server] Servidor API REST CumbiaChat iniciado en http://localhost:${PORT}`);
 });

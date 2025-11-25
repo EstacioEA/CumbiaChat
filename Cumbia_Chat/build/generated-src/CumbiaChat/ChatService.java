@@ -31,6 +31,10 @@ public interface ChatService extends com.zeroc.Ice.Object
 
     void endCall(String fromUser, String toUser, com.zeroc.Ice.Current current);
 
+    String[] getPendingCalls(String userId, com.zeroc.Ice.Current current);
+
+    void clearPendingCall(String userId, String fromUser, com.zeroc.Ice.Current current);
+
     void streamAudio(String fromUser, String toUser, byte[] data, com.zeroc.Ice.Current current);
 
     String sendAudioMessage(String fromUser, String toUser, byte[] data, com.zeroc.Ice.Current current);
@@ -204,6 +208,47 @@ public interface ChatService extends com.zeroc.Ice.Object
      * @param current -
      * @return -
     **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_getPendingCalls(ChatService obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_userId;
+        iceP_userId = istr.readString();
+        inS.endReadParams();
+        String[] ret = obj.getPendingCalls(iceP_userId, current);
+        com.zeroc.Ice.OutputStream ostr = inS.startWriteParams();
+        ostr.writeStringSeq(ret);
+        inS.endWriteParams(ostr);
+        return inS.setResult(ostr);
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
+    static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_clearPendingCall(ChatService obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
+    {
+        com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
+        com.zeroc.Ice.InputStream istr = inS.startReadParams();
+        String iceP_userId;
+        String iceP_fromUser;
+        iceP_userId = istr.readString();
+        iceP_fromUser = istr.readString();
+        inS.endReadParams();
+        obj.clearPendingCall(iceP_userId, iceP_fromUser, current);
+        return inS.setResult(inS.writeEmptyParams());
+    }
+
+    /**
+     * @hidden
+     * @param obj -
+     * @param inS -
+     * @param current -
+     * @return -
+    **/
     static java.util.concurrent.CompletionStage<com.zeroc.Ice.OutputStream> _iceD_streamAudio(ChatService obj, final com.zeroc.IceInternal.Incoming inS, com.zeroc.Ice.Current current)
     {
         com.zeroc.Ice.Object._iceCheckMode(null, current.mode);
@@ -273,8 +318,10 @@ public interface ChatService extends com.zeroc.Ice.Object
     final static String[] _iceOps =
     {
         "acceptCall",
+        "clearPendingCall",
         "endCall",
         "getConnectedUsers",
+        "getPendingCalls",
         "ice_id",
         "ice_ids",
         "ice_isA",
@@ -307,53 +354,61 @@ public interface ChatService extends com.zeroc.Ice.Object
             }
             case 1:
             {
-                return _iceD_endCall(this, in, current);
+                return _iceD_clearPendingCall(this, in, current);
             }
             case 2:
             {
-                return _iceD_getConnectedUsers(this, in, current);
+                return _iceD_endCall(this, in, current);
             }
             case 3:
             {
-                return com.zeroc.Ice.Object._iceD_ice_id(this, in, current);
+                return _iceD_getConnectedUsers(this, in, current);
             }
             case 4:
             {
-                return com.zeroc.Ice.Object._iceD_ice_ids(this, in, current);
+                return _iceD_getPendingCalls(this, in, current);
             }
             case 5:
             {
-                return com.zeroc.Ice.Object._iceD_ice_isA(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_id(this, in, current);
             }
             case 6:
             {
-                return com.zeroc.Ice.Object._iceD_ice_ping(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_ids(this, in, current);
             }
             case 7:
             {
-                return _iceD_registerClient(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_isA(this, in, current);
             }
             case 8:
             {
-                return _iceD_rejectCall(this, in, current);
+                return com.zeroc.Ice.Object._iceD_ice_ping(this, in, current);
             }
             case 9:
             {
-                return _iceD_sendAudioMessage(this, in, current);
+                return _iceD_registerClient(this, in, current);
             }
             case 10:
             {
-                return _iceD_sendAudioMessageToGroup(this, in, current);
+                return _iceD_rejectCall(this, in, current);
             }
             case 11:
             {
-                return _iceD_startCall(this, in, current);
+                return _iceD_sendAudioMessage(this, in, current);
             }
             case 12:
             {
-                return _iceD_streamAudio(this, in, current);
+                return _iceD_sendAudioMessageToGroup(this, in, current);
             }
             case 13:
+            {
+                return _iceD_startCall(this, in, current);
+            }
+            case 14:
+            {
+                return _iceD_streamAudio(this, in, current);
+            }
+            case 15:
             {
                 return _iceD_unregisterClient(this, in, current);
             }

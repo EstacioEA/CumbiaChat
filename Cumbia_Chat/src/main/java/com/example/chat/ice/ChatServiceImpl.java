@@ -15,6 +15,9 @@ public class ChatServiceImpl implements ChatService {
     // Llamadas activas: userId -> userId (quién está llamando a quién)
     private final Map<String, String> activeCalls = new ConcurrentHashMap<>();
 
+    // Llamadas pendientes: userId -> List<fromUser> (llamadas que no se han aceptado/rechazado)
+    private final Map<String, List<String>> pendingCalls = new ConcurrentHashMap<>();
+
     // Directorio para guardar audios
     private static final String AUDIO_DIR = "audios/";
 
@@ -38,6 +41,7 @@ public class ChatServiceImpl implements ChatService {
     public void unregisterClient(String userId, Current current) {
         observers.remove(userId);
         activeCalls.remove(userId);
+        pendingCalls.remove(userId);
         System.out.println("[ICE] Cliente desregistrado: " + userId);
     }
 
@@ -52,16 +56,22 @@ public class ChatServiceImpl implements ChatService {
     public void startCall(String fromUser, String toUser, Current current) {
         System.out.println("[ICE] " + fromUser + " iniciando llamada a " + toUser);
 
+        // Guardar llamada pendiente (para polling)
+        pendingCalls.computeIfAbsent(toUser, k -> new ArrayList<>()).add(fromUser);
+        System.out.println("[ICE] Llamada agregada a pendientes para " + toUser);
+
         ChatObserverPrx targetObserver = observers.get(toUser);
+        
         if (targetObserver == null) {
-            System.out.println("[ICE] Usuario " + toUser + " no está conectado");
+            System.out.println("[ICE] Usuario " + toUser + " no está conectado (llamada guardada como pendiente)");
             return;
         }
 
-        // Notificar al destinatario
+        // Notificar al destinatario (si está conectado vía observer)
         try {
             targetObserver.incomingCallAsync(fromUser);
             activeCalls.put(fromUser, toUser);
+            System.out.println("[ICE] Notificación de llamada enviada a " + toUser);
         } catch (Exception e) {
             System.err.println("[ICE] Error notificando llamada entrante: " + e.getMessage());
         }
@@ -112,6 +122,29 @@ public class ChatServiceImpl implements ChatService {
 
         activeCalls.remove(fromUser);
         activeCalls.remove(toUser);
+    }
+
+    // ============ CONSULTA DE LLAMADAS PENDIENTES ============
+
+    @Override
+    public String[] getPendingCalls(String userId, Current current) {
+        List<String> calls = pendingCalls.getOrDefault(userId, new ArrayList<>());
+        System.out.println("[ICE] Consulta de llamadas pendientes para " + userId + ": " + calls.size() + " llamadas");
+        return calls.toArray(new String[0]);
+    }
+
+    @Override
+    public void clearPendingCall(String userId, String fromUser, Current current) {
+        List<String> calls = pendingCalls.get(userId);
+        if (calls != null) {
+            calls.remove(fromUser);
+            System.out.println("[ICE] Llamada pendiente eliminada: " + fromUser + " -> " + userId);
+            
+            // Si no quedan llamadas pendientes, eliminar la entrada
+            if (calls.isEmpty()) {
+                pendingCalls.remove(userId);
+            }
+        }
     }
 
     // ============ STREAMING DE AUDIO (LLAMADAS) ============

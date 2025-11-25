@@ -1,6 +1,5 @@
 /**
  * Lógica principal del chat de CumbiaChat
- * VERSIÓN CORREGIDA
  */
 
 // ===== ESTADO DE LA APLICACIÓN =====
@@ -135,16 +134,22 @@ async function loadChatHistory(name, type) {
             response = await api.getPrivateHistory(appState.currentUser, name, appState.currentUser)
         }
 
-        if (response.success && response.data.history) {
+        console.log('[Chat] Response history:', response);
+
+        // Corregir acceso a historial
+        if (response.success && response.data.data && response.data.data.history) {
+            parseAndDisplayHistory(response.data.data.history)
+        } else if (response.success && response.data.history) {
             parseAndDisplayHistory(response.data.history)
         } else {
             showEmptyHistory(name)
         }
     } catch (error) {
-        console.error("[v0] Error cargando historial:", error)
+        console.error("[Chat] Error cargando historial:", error)
         showEmptyHistory(name)
     }
 }
+
 
 async function refreshChatHistory() {
     if (!appState.activeChat) return
@@ -160,7 +165,17 @@ async function refreshChatHistory() {
             response = await api.getPrivateHistory(appState.currentUser, name, appState.currentUser)
         }
 
-        if (response.success && response.data.history) {
+        // Corregir acceso a historial
+        if (response.success && response.data.data && response.data.data.history) {
+            const container = document.getElementById("messagesContainer")
+            const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100
+
+            parseAndDisplayHistory(response.data.data.history)
+
+            if (wasAtBottom) {
+                scrollToBottom()
+            }
+        } else if (response.success && response.data.history) {
             const container = document.getElementById("messagesContainer")
             const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100
 
@@ -171,9 +186,10 @@ async function refreshChatHistory() {
             }
         }
     } catch (error) {
-        console.error("[v0] Error refrescando historial:", error)
+        console.error("[Chat] Error refrescando historial:", error)
     }
 }
+
 
 // ===== INICIALIZACIÓN =====
 function init() {
@@ -181,11 +197,20 @@ function init() {
     if (!appState.currentUser) return
 
     elements.currentUsername.textContent = appState.currentUser
+    
+    // Configurar usuario en iceClient
+    if (window.iceClient) {
+        window.iceClient.setCurrentUser(appState.currentUser);
+        console.log("[Chat] Usuario configurado en iceClient:", appState.currentUser);
+    } else {
+        console.error("[Chat] iceClient no está disponible en init()");
+    }
+    
     setupEventListeners()
     loadInitialData()
     startPolling()
 
-    console.log("🎵 CumbiaChat iniciado -", appState.currentUser)
+    console.log("[Chat] CumbiaChat iniciado -", appState.currentUser)
 }
 
 // ===== EVENT LISTENERS =====
@@ -221,26 +246,42 @@ async function loadInitialData() {
 async function loadUsers() {
     try {
         const response = await api.getActiveUsers(appState.currentUser)
-        if (response.success && response.data.users) {
+        //console.log('[Chat] Response getActiveUsers:', response);
+        
+        // Corregir acceso a usuarios
+        if (response.success && response.data.data && response.data.data.users) {
+            appState.users = response.data.data.users.filter((u) => u !== appState.currentUser)
+            renderUsersList()
+        } else if (response.success && response.data.users) {
+            // Fallback por si el formato cambia
             appState.users = response.data.users.filter((u) => u !== appState.currentUser)
             renderUsersList()
         }
     } catch (error) {
-        console.error("Error cargando usuarios:", error)
+        console.error("[Chat] Error cargando usuarios:", error)
     }
 }
+
 
 async function loadGroups() {
     try {
         const response = await api.getAvailableGroups(appState.currentUser)
-        if (response.success && response.data.groups) {
+        //console.log('[Chat] Response getAvailableGroups:', response);
+        
+        // Corregir acceso a grupos
+        if (response.success && response.data.data && response.data.data.groups) {
+            appState.groups = response.data.data.groups
+            renderGroupsList()
+        } else if (response.success && response.data.groups) {
+            // Fallback por si el formato cambia
             appState.groups = response.data.groups
             renderGroupsList()
         }
     } catch (error) {
-        console.error("Error cargando grupos:", error)
+        console.error("[Chat] Error cargando grupos:", error)
     }
 }
+
 
 // ===== RENDERIZADO =====
 function renderUsersList() {
@@ -368,7 +409,11 @@ async function openChat(name, type) {
     renderUsersList()
     renderGroupsList()
 
-    console.log("Chat abierto:", name, type)
+    // Normalizar tipo de chat
+    const normalizedType = (type === 'group') ? 'group' : 'private';
+    updateCurrentChat(normalizedType, name);
+
+    console.log("[Chat] Chat abierto:", name, "Tipo:", normalizedType)
 }
 
 function closeChat() {
@@ -414,7 +459,7 @@ async function handleSendMessage(e) {
             showToast("Error enviando mensaje", "error")
         }
     } catch (error) {
-        console.error("Error enviando mensaje:", error)
+        console.error("[Chat] Error enviando mensaje:", error)
         showToast("Error de conexión", "error")
     }
 }
@@ -455,7 +500,7 @@ async function handleCreateGroup(e) {
             showToast(response.error || "El grupo ya existe", "error")
         }
     } catch (error) {
-        console.error("Error creando grupo:", error)
+        console.error("[Chat] Error creando grupo:", error)
         showToast("Error de conexión", "error")
     } finally {
         hideLoader()
@@ -468,17 +513,363 @@ function startPolling() {
         await loadUsers()
         await loadGroups()
 
-        // Refrescar historial del chat activo
         if (appState.activeChat) {
             await refreshChatHistory()
         }
+        
+        // Verificar llamadas entrantes cada 3 segundos
+        await checkIncomingCalls()
     }, CONFIG.APP.POLL_INTERVAL)
 }
+
 
 function stopPolling() {
     if (appState.pollInterval) {
         clearInterval(appState.pollInterval)
         appState.pollInterval = null
+    }
+}
+
+// ===== POLLING DE LLAMADAS ENTRANTES =====
+
+async function checkIncomingCalls() {
+    if (!window.iceClient || !window.iceClient.currentUser) return;
+    
+    try {
+        const response = await fetch(`http://localhost:5000/api/calls/pending?username=${window.iceClient.currentUser}`);
+        const data = await response.json();
+        
+        if (data.pendingCalls && data.pendingCalls.length > 0) {
+            // Mostrar modal para la primera llamada pendiente
+            const caller = data.pendingCalls[0];
+            showIncomingCallModal(caller);
+        }
+    } catch (error) {
+        console.error('[Call] Error checking incoming calls:', error);
+    }
+}
+
+function showIncomingCallModal(fromUser) {
+    // Evitar mostrar múltiples modales
+    if (document.getElementById('incoming-call-modal')) return;
+    
+    const modal = document.createElement('div');
+    modal.id = 'incoming-call-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; padding: 30px; border-radius: 10px; text-align: center; min-width: 300px;">
+            <h2>Llamada entrante</h2>
+            <p style="font-size: 20px; margin: 20px 0;">${fromUser}</p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="accept-call-btn" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                    Aceptar
+                </button>
+                <button id="reject-call-btn" style="padding: 10px 20px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                    Rechazar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('accept-call-btn').onclick = () => acceptIncomingCall(fromUser);
+    document.getElementById('reject-call-btn').onclick = () => rejectIncomingCall(fromUser);
+}
+
+async function acceptIncomingCall(fromUser) {
+    console.log('[Call] Aceptando llamada de:', fromUser);
+    
+    // Limpiar llamada pendiente
+    await fetch('http://localhost:5000/api/calls/clear-pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: window.iceClient.currentUser,
+            fromUser: fromUser
+        })
+    });
+    
+    // Aceptar llamada
+    await window.iceClient.acceptCall(fromUser);
+    
+    // Cerrar modal
+    const modal = document.getElementById('incoming-call-modal');
+    if (modal) modal.remove();
+    
+    // Actualizar UI
+    updateCallUI(true, fromUser);
+    showToast('success', 'Llamada aceptada');
+}
+
+async function rejectIncomingCall(fromUser) {
+    console.log('[Call] Rechazando llamada de:', fromUser);
+    
+    // Limpiar llamada pendiente
+    await fetch('http://localhost:5000/api/calls/clear-pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: window.iceClient.currentUser,
+            fromUser: fromUser
+        })
+    });
+    
+    // Rechazar llamada
+    await window.iceClient.rejectCall(fromUser);
+    
+    // Cerrar modal
+    const modal = document.getElementById('incoming-call-modal');
+    if (modal) modal.remove();
+    
+    showToast('info', 'Llamada rechazada');
+}
+
+
+// ========== FUNCIONES DE AUDIO Y LLAMADAS ==========
+
+let isRecording = false;
+let currentChatType = 'private';
+let currentChatTarget = null;
+
+// Inicializar controles de audio
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAudioControls();
+});
+
+function initializeAudioControls() {
+    const recordBtn = document.getElementById('btn-record-audio');
+    const callBtn = document.getElementById('btn-start-call');
+    const endCallBtn = document.getElementById('btn-end-call');
+
+    if (recordBtn) {
+        recordBtn.addEventListener('click', toggleAudioRecording);
+        console.log('[Audio] Boton de grabacion configurado');
+    }
+
+    if (callBtn) {
+        callBtn.addEventListener('click', startCall);
+        console.log('[Audio] Boton de llamada configurado');
+    }
+
+    if (endCallBtn) {
+        endCallBtn.addEventListener('click', endCall);
+        console.log('[Audio] Boton de colgar configurado');
+    }
+}
+
+async function toggleAudioRecording() {
+    console.log('[Audio] === INICIO toggleAudioRecording ===');
+    console.log('[Audio] currentChatTarget:', currentChatTarget);
+    console.log('[Audio] isRecording:', isRecording);
+    
+    if (!window.iceClient) {
+        console.error('[Audio] IceClient no esta disponible');
+        alert('Error: Sistema de audio no inicializado. Recarga la página.');
+        return;
+    }
+
+    if (!currentChatTarget) {
+        console.error('[Audio] currentChatTarget es null');
+        if (typeof showToast === 'function') {
+            showToast('error', 'Selecciona un chat primero');
+        } else {
+            alert('Selecciona un chat primero');
+        }
+        return;
+    }
+
+    const btn = document.getElementById('btn-record-audio');
+
+    if (!isRecording) {
+        try {
+            const success = await window.iceClient.startAudioRecording();
+            if (success) {
+                isRecording = true;
+                btn.innerHTML = '⏹️ <span class="btn-text">Detener</span>';
+                btn.classList.add('recording');
+
+                if (typeof showToast === 'function') {
+                    showToast('info', 'Grabando audio...');
+                }
+            }
+        } catch (error) {
+            console.error('[Audio] Error en startAudioRecording:', error);
+            alert('Error al acceder al micrófono: ' + error.message);
+        }
+    } else {
+        try {
+            window.iceClient.stopAudioRecording();
+
+            setTimeout(async () => {
+                if (window.iceClient.audioChunks && window.iceClient.audioChunks.length > 0) {
+                    const audioBlob = new Blob(window.iceClient.audioChunks, { type: 'audio/wav' });
+
+                    if (typeof showLoader === 'function') showLoader();
+
+                    try {
+                        if (currentChatType === 'private') {
+                            const result = await window.iceClient.sendAudioMessage(currentChatTarget, audioBlob);
+                            console.log('[Audio] Resultado envio audio:', result);
+                            if (typeof showToast === 'function') {
+                                showToast('success', 'Audio enviado');
+                            }
+                        } else if (currentChatType === 'group') {
+                            const result = await window.iceClient.sendAudioMessageToGroup(currentChatTarget, audioBlob);
+                            console.log('[Audio] Resultado envio audio grupo:', result);
+                            if (typeof showToast === 'function') {
+                                showToast('success', 'Audio enviado al grupo');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('[Audio] Error enviando audio:', error);
+                        if (typeof showToast === 'function') {
+                            showToast('error', 'Error enviando audio: ' + error.message);
+                        }
+                    }
+
+                    if (typeof hideLoader === 'function') hideLoader();
+                }
+            }, 500);
+
+            isRecording = false;
+            btn.innerHTML = '🎤 <span class="btn-text">Grabar Audio</span>';
+            btn.classList.remove('recording');
+
+        } catch (error) {
+            console.error('[Audio] Error deteniendo grabacion:', error);
+            alert('Error deteniendo grabación: ' + error.message);
+        }
+    }
+}
+
+async function startCall() {
+    console.log('[Call] === INICIO startCall ===');
+    console.log('[Call] currentChatTarget:', currentChatTarget);
+    console.log('[Call] currentChatType:', currentChatType);
+    console.log('[Call] iceClient.currentUser:', window.iceClient?.currentUser);
+
+    if (!window.iceClient) {
+        console.error('[Call] IceClient no esta disponible');
+        alert('Error: Sistema de llamadas no inicializado. Recarga la página.');
+        return;
+    }
+
+    if (!window.iceClient.currentUser) {
+        console.error('[Call] currentUser no esta configurado en iceClient');
+        alert('Error: Usuario no configurado. Recarga la página.');
+        return;
+    }
+
+    if (!currentChatTarget || currentChatType !== 'private') {
+        if (typeof showToast === 'function') {
+            showToast('error', 'Selecciona un usuario para llamar');
+        } else {
+            alert('Selecciona un usuario para llamar');
+        }
+        return;
+    }
+
+    try {
+        if (typeof showLoader === 'function') showLoader();
+
+        const success = await window.iceClient.startCall(currentChatTarget);
+
+        if (typeof hideLoader === 'function') hideLoader();
+
+        if (success) {
+            updateCallUI(true, currentChatTarget);
+            if (typeof showToast === 'function') {
+                showToast('success', `Llamando a ${currentChatTarget}...`);
+            }
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('error', 'No se pudo iniciar la llamada');
+            }
+        }
+    } catch (error) {
+        console.error('[Call] Error iniciando llamada:', error);
+        if (typeof hideLoader === 'function') hideLoader();
+        alert('Error iniciando llamada: ' + error.message);
+    }
+}
+
+async function endCall() {
+    console.log('[Call] Boton de colgar presionado');
+
+    if (!window.iceClient) {
+        console.error('[Call] IceClient no esta disponible');
+        alert('Error: Sistema de llamadas no inicializado. Recarga la página.');
+        return;
+    }
+
+    try {
+        if (typeof showLoader === 'function') showLoader();
+
+        const success = await window.iceClient.endCall();
+
+        if (typeof hideLoader === 'function') hideLoader();
+
+        if (success) {
+            updateCallUI(false, null);
+            if (typeof showToast === 'function') {
+                showToast('info', 'Llamada finalizada');
+            }
+        }
+    } catch (error) {
+        console.error('[Call] Error finalizando llamada:', error);
+        if (typeof hideLoader === 'function') hideLoader();
+        alert('Error finalizando llamada: ' + error.message);
+    }
+}
+
+function updateCallUI(isActive, target) {
+    const indicator = document.getElementById('call-status-indicator');
+    const statusText = document.getElementById('call-status-text');
+    const startBtn = document.getElementById('btn-start-call');
+    const endBtn = document.getElementById('btn-end-call');
+
+    if (isActive) {
+        if (indicator) indicator.style.display = 'flex';
+        if (statusText) statusText.textContent = `En llamada con ${target}`;
+        if (startBtn) startBtn.disabled = true;
+        if (endBtn) endBtn.disabled = false;
+    } else {
+        if (indicator) indicator.style.display = 'none';
+        if (startBtn) startBtn.disabled = false;
+        if (endBtn) endBtn.disabled = true;
+    }
+}
+
+function updateCurrentChat(type, target) {
+    currentChatType = type;
+    currentChatTarget = target;
+
+    console.log('[Chat] Chat actualizado:', type, '-', target);
+
+    const callBtn = document.getElementById('btn-start-call');
+    if (callBtn) {
+        if (type === 'private') {
+            callBtn.disabled = false;
+            callBtn.title = 'Iniciar llamada';
+            console.log('[Chat] Boton de llamada HABILITADO');
+        } else {
+            callBtn.disabled = true;
+            callBtn.title = 'Solo llamadas privadas';
+            console.log('[Chat] Boton de llamada DESHABILITADO (grupo)');
+        }
     }
 }
 
@@ -515,4 +906,3 @@ if (document.readyState === "loading") {
 } else {
     init()
 }
-

@@ -9,7 +9,7 @@ class CumbiaChatAPI {
     }
 
     /**
-     * Realiza una petición HTTP genérica
+     * Realiza una peticion HTTP generica
      */
     async request(endpoint, options = {}) {
         const url = `${this.baseUrl}${endpoint}`;
@@ -27,7 +27,7 @@ class CumbiaChatAPI {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || data.message || 'Error en la petición');
+                throw new Error(data.error || data.message || 'Error en la peticion');
             }
 
             return {
@@ -68,7 +68,7 @@ class CumbiaChatAPI {
      * Obtener usuarios activos
      */
     async getActiveUsers(username) {
-        return await this.request(`${CONFIG.ENDPOINTS.USERS}?user=${username}`, {
+        return await this.request(`${CONFIG.ENDPOINTS.USERS}?username=${username}`, {
             method: 'GET'
         });
     }
@@ -77,7 +77,7 @@ class CumbiaChatAPI {
      * Obtener grupos disponibles
      */
     async getAvailableGroups(username) {
-        return await this.request(`${CONFIG.ENDPOINTS.GROUPS}?user=${username}`, {
+        return await this.request(`${CONFIG.ENDPOINTS.GROUPS}?username=${username}`, {
             method: 'GET'
         });
     }
@@ -86,9 +86,9 @@ class CumbiaChatAPI {
      * Crear un grupo nuevo
      */
     async createGroup(groupName, creatorUsername) {
-        return await this.request(CONFIG.ENDPOINTS.GROUPS, {
+        return await this.request(CONFIG.ENDPOINTS.CREATE_GROUP, {
             method: 'POST',
-            body: JSON.stringify({ groupName, creatorUsername })
+            body: JSON.stringify({ groupName, creator: creatorUsername })
         });
     }
 
@@ -137,7 +137,6 @@ class CumbiaChatAPI {
             const response = await fetch(url, {
                 method: 'POST',
                 body: formData
-                // No incluir Content-Type, el navegador lo hará automáticamente con multipart
             });
 
             const data = await response.json();
@@ -201,7 +200,7 @@ class CumbiaChatAPI {
      * Obtener historial de chat privado
      */
     async getPrivateHistory(user1, user2, requestingUser) {
-        const url = `${this.baseUrl}${CONFIG.ENDPOINTS.HISTORY_PRIVATE}/${user1}/${user2}?user=${requestingUser}`;
+        const url = `${this.baseUrl}${CONFIG.ENDPOINTS.HISTORY_PRIVATE}?user1=${user1}&user2=${user2}&requester=${requestingUser}`;
         
         try {
             const response = await fetch(url, { method: 'GET' });
@@ -228,7 +227,7 @@ class CumbiaChatAPI {
      * Obtener historial de grupo
      */
     async getGroupHistory(groupName, requestingUser) {
-        const url = `${this.baseUrl}${CONFIG.ENDPOINTS.HISTORY_GROUP}/${groupName}?user=${requestingUser}`;
+        const url = `${this.baseUrl}${CONFIG.ENDPOINTS.HISTORY_GROUP}?groupName=${groupName}&requester=${requestingUser}`;
         
         try {
             const response = await fetch(url, { method: 'GET' });

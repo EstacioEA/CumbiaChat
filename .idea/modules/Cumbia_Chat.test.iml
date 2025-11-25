@@ -7,16 +7,17 @@
       </configuration>
     </facet>
   </component>
-  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_22">
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_21">
     <output-test url="file://$MODULE_DIR$/../../Cumbia_Chat/build/classes/java/test" />
     <exclude-output />
     <content url="file://$MODULE_DIR$/../../Cumbia_Chat/src/test">
       <sourceFolder url="file://$MODULE_DIR$/../../Cumbia_Chat/src/test/java" isTestSource="true" />
     </content>
-    <orderEntry type="jdk" jdkName="22" jdkType="JavaSDK" />
+    <orderEntry type="jdk" jdkName="21" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="Cumbia_Chat.main" />
     <orderEntry type="library" name="Gradle: com.google.code.gson:gson:2.10.1" level="project" />
+    <orderEntry type="library" name="Gradle: com.zeroc:ice:3.7.10" level="project" />
   </component>
   <component name="TestModuleProperties" production-module="Cumbia_Chat.main" />
 </module>

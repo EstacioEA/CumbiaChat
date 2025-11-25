@@ -1,0 +1,164 @@
+/* audio-controls.css  */
+
+.audio-controls {
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-top: 2px solid rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.audio-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    min-width: 120px;
+    max-width: 180px;
+    justify-content: center;
+}
+
+.audio-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.audio-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.audio-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-record {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+.btn-record.recording {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 15px rgba(245, 87, 108, 0.5);
+    }
+    50% {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 0 25px rgba(245, 87, 108, 0.8);
+    }
+}
+
+.btn-call {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white;
+}
+
+.btn-call:hover:not(:disabled) {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.btn-end-call {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+}
+
+.btn-end-call:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff5252 0%, #f48fb1 100%);
+}
+
+/* Indicador de llamada en el header */
+.call-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    border-radius: 20px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    animation: pulse-call 2s ease-in-out infinite;
+}
+
+@keyframes pulse-call {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.call-icon {
+    animation: ring 1.5s ease-in-out infinite;
+}
+
+@keyframes ring {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    10%, 30% {
+        transform: rotate(-10deg);
+    }
+    20%, 40% {
+        transform: rotate(10deg);
+    }
+    50% {
+        transform: rotate(0deg);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .audio-controls {
+        padding: 10px 12px;
+        gap: 6px;
+    }
+
+    .audio-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        min-width: 100px;
+    }
+
+    .btn-text {
+        display: none;
+    }
+}
+
+/* Mensajes de audio en el chat */
+.message-audio {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 12px;
+    border-left: 4px solid #667eea;
+}
+
+.message-audio audio {
+    width: 100%;
+    max-width: 300px;
+    height: 35px;
+}
+
+.audio-duration {
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+}

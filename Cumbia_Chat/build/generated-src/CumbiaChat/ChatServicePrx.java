@@ -280,6 +280,84 @@ public interface ChatServicePrx extends com.zeroc.Ice.ObjectPrx
         return f;
     }
 
+    default String[] getPendingCalls(String userId)
+    {
+        return getPendingCalls(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default String[] getPendingCalls(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingCallsAsync(userId, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingCallsAsync(String userId)
+    {
+        return _iceI_getPendingCallsAsync(userId, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<String[]> getPendingCallsAsync(String userId, java.util.Map<String, String> context)
+    {
+        return _iceI_getPendingCallsAsync(userId, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_userId -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<String[]> _iceI_getPendingCallsAsync(String iceP_userId, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<String[]> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "getPendingCalls", null, sync, null);
+        f.invoke(true, context, null, ostr -> {
+                     ostr.writeString(iceP_userId);
+                 }, istr -> {
+                     String[] ret;
+                     ret = istr.readStringSeq();
+                     return ret;
+                 });
+        return f;
+    }
+
+    default void clearPendingCall(String userId, String fromUser)
+    {
+        clearPendingCall(userId, fromUser, com.zeroc.Ice.ObjectPrx.noExplicitContext);
+    }
+
+    default void clearPendingCall(String userId, String fromUser, java.util.Map<String, String> context)
+    {
+        _iceI_clearPendingCallAsync(userId, fromUser, context, true).waitForResponse();
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> clearPendingCallAsync(String userId, String fromUser)
+    {
+        return _iceI_clearPendingCallAsync(userId, fromUser, com.zeroc.Ice.ObjectPrx.noExplicitContext, false);
+    }
+
+    default java.util.concurrent.CompletableFuture<Void> clearPendingCallAsync(String userId, String fromUser, java.util.Map<String, String> context)
+    {
+        return _iceI_clearPendingCallAsync(userId, fromUser, context, false);
+    }
+
+    /**
+     * @hidden
+     * @param iceP_userId -
+     * @param iceP_fromUser -
+     * @param context -
+     * @param sync -
+     * @return -
+     **/
+    default com.zeroc.IceInternal.OutgoingAsync<Void> _iceI_clearPendingCallAsync(String iceP_userId, String iceP_fromUser, java.util.Map<String, String> context, boolean sync)
+    {
+        com.zeroc.IceInternal.OutgoingAsync<Void> f = new com.zeroc.IceInternal.OutgoingAsync<>(this, "clearPendingCall", null, sync, null);
+        f.invoke(false, context, null, ostr -> {
+                     ostr.writeString(iceP_userId);
+                     ostr.writeString(iceP_fromUser);
+                 }, null);
+        return f;
+    }
+
     default void streamAudio(String fromUser, String toUser, byte[] data)
     {
         streamAudio(fromUser, toUser, data, com.zeroc.Ice.ObjectPrx.noExplicitContext);

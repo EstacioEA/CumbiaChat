@@ -4,18 +4,26 @@
     <facet external-system-id="GRADLE" type="web" name="Web">
       <configuration>
         <webroots />
+        <sourceRoots>
+          <root url="file://$MODULE_DIR$/../../Cumbia_Chat/src/main/java" />
+          <root url="file://$MODULE_DIR$/../../Cumbia_Chat/src/main/resources" />
+        </sourceRoots>
       </configuration>
     </facet>
   </component>
-  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_22">
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_21">
     <output url="file://$MODULE_DIR$/../../Cumbia_Chat/build/classes/java/main" />
     <exclude-output />
+    <content url="file://$MODULE_DIR$/../../Cumbia_Chat/build/generated-src">
+      <sourceFolder url="file://$MODULE_DIR$/../../Cumbia_Chat/build/generated-src" isTestSource="false" />
+    </content>
     <content url="file://$MODULE_DIR$/../../Cumbia_Chat/src/main">
       <sourceFolder url="file://$MODULE_DIR$/../../Cumbia_Chat/src/main/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../../Cumbia_Chat/src/main/resources" type="java-resource" />
     </content>
-    <orderEntry type="jdk" jdkName="22" jdkType="JavaSDK" />
+    <orderEntry type="jdk" jdkName="21" jdkType="JavaSDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Gradle: com.google.code.gson:gson:2.10.1" level="project" />
+    <orderEntry type="library" name="Gradle: com.zeroc:ice:3.7.10" level="project" />
   </component>
 </module>

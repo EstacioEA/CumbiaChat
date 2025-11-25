@@ -1,17 +1,18 @@
 /**
- * Configuración global de CumbiaChat
+ * Configuracion global de CumbiaChat
  */
 
 const CONFIG = {
     // URL base del proxy/API REST
     API_BASE_URL: 'http://localhost:5000',
     
-    // Endpoints específicos
+    // Endpoints especificos
     ENDPOINTS: {
-        LOGIN: '/api/auth/login',
+        LOGIN: '/api/auth/register',
         LOGOUT: '/api/auth/logout',
-        USERS: '/api/users',
-        GROUPS: '/api/groups',
+        USERS: '/api/users/active',
+        GROUPS: '/api/groups/available',
+        CREATE_GROUP: '/api/groups/create',
         JOIN_GROUP: '/api/groups/join',
         MESSAGE_GROUP: '/api/messages/group',
         MESSAGE_PRIVATE: '/api/messages/private',
@@ -21,24 +22,24 @@ const CONFIG = {
         HISTORY_GROUP: '/api/history/group'
     },
     
-    // Configuración de la aplicación
+    // Configuracion de la aplicacion
     APP: {
         NAME: 'CumbiaChat',
         VERSION: '2.0',
         MIN_USERNAME_LENGTH: 3,
         MAX_USERNAME_LENGTH: 20,
         MESSAGE_MAX_LENGTH: 500,
-        POLL_INTERVAL: 3000 // Intervalo para polling de mensajes (ms)
+        POLL_INTERVAL: 3000
     },
     
-    // Mensajes de la aplicación
+    // Mensajes de la aplicacion
     MESSAGES: {
         LOGIN: {
-            SUCCESS: '¡Bienvenido al ritmo! 🎵',
+            SUCCESS: 'Bienvenido',
             ERROR_GENERIC: 'No pudimos conectarte. Intenta de nuevo.',
             ERROR_USERNAME_SHORT: 'El nombre debe tener al menos 3 caracteres',
-            ERROR_USERNAME_TAKEN: 'Ese nombre ya está en uso. ¡Elige otro!',
-            ERROR_CONNECTION: 'No hay conexión con el servidor'
+            ERROR_USERNAME_TAKEN: 'Ese nombre ya esta en uso',
+            ERROR_CONNECTION: 'No hay conexion con el servidor'
         },
         CHAT: {
             SEND_SUCCESS: 'Mensaje enviado',
@@ -57,7 +58,7 @@ const CONFIG = {
     }
 };
 
-// Función auxiliar para construir URLs
+// Funcion auxiliar para construir URLs
 const buildUrl = (endpoint) => {
     return `${CONFIG.API_BASE_URL}${endpoint}`;
 };
