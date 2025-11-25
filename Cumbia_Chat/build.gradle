@@ -1,8 +1,7 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.springframework.boot' version '3.3.3'
-    id 'io.spring.dependency-management' version '1.1.5'
+    id 'com.zeroc.gradle.ice-builder.slice' version '1.5.0'
 }
 
 group = 'com.example'
@@ -10,7 +9,14 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(22)
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// Configuración de Slice
+slice {
+    java {
+        files = [file("CumbiaChat.ice")]
     }
 }
 
@@ -22,13 +28,9 @@ application {
     mainClass = 'com.example.chat.TCP.Server'
 }
 
-tasks.register('runClient', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'com.example.chat.TCP.Client'
-}
-
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.zeroc:ice:3.7.10'  // Ice dependency
 }
 
 tasks.named('test') {

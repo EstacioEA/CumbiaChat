@@ -1,0 +1,15 @@
+<state>
+  <timestamp value='1764053338617' />
+  <sourceSet name='default'>
+    <source name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\CumbiaChat.ice'>
+      <file name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\build\generated-src\CumbiaChat\ChatObserver.java' />
+      <file name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\build\generated-src\CumbiaChat\ChatService.java' />
+      <file name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\build\generated-src\CumbiaChat\ChatObserverPrx.java' />
+      <file name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\build\generated-src\CumbiaChat\_ChatObserverPrxI.java' />
+      <file name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\build\generated-src\CumbiaChat\ChatServicePrx.java' />
+      <file name='D:\Users\User\Documents\Icesi\S4\Compunet\CumbiaChat\Cumbia_Chat\build\generated-src\CumbiaChat\_ChatServicePrxI.java' />
+    </source>
+    <arg value='C:\Program Files\ZeroC\Ice-3.7.10\\bin\slice2java.exe' />
+    <arg value='-IC:\Program Files\ZeroC\Ice-3.7.10\\slice' />
+  </sourceSet>
+</state>

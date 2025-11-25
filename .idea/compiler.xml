@@ -2,9 +2,9 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <bytecodeTargetLevel>
-      <module name="Cumbia_Chat" target="22" />
-      <module name="Cumbia_Chat.main" target="22" />
-      <module name="Cumbia_Chat.test" target="22" />
+      <module name="Cumbia_Chat" target="21" />
+      <module name="Cumbia_Chat.main" target="21" />
+      <module name="Cumbia_Chat.test" target="21" />
     </bytecodeTargetLevel>
   </component>
 </project>

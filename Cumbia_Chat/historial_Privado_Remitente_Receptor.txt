@@ -1,0 +1,2 @@
+[2025-11-24 21:45:31] [TEXT] Remitente -> Privado_Remitente_Receptor : Hola que tal?
+[2025-11-24 22:12:22] [TEXT] Remitente -> Privado_Remitente_Receptor : Bien bien
