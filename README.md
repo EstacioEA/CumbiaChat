@@ -6,7 +6,7 @@
 
 ## 👥 Equipo de Desarrollo
 
-- **Jose Valdez**
+- **Jose Valdes**
 - **Juan Diego Balanta**
 - **Edwar Andres Estacio**
 
@@ -18,18 +18,19 @@ Esta es la **segunda entrega** del proyecto CumbiaChat, enfocada en la transici�
 
 ### Arquitectura del Sistema
 ```
-┌─────────────────┐         HTTP          ┌──────────────────┐         TCP          ┌──────────────────┐
-│   Cliente Web   │ ◄──────────────────► │   Proxy Express  │ ◄──────────────────► │  Servidor Java   │
-│ (HTML/CSS/JS)   │    REST API Calls    │   (Node.js)      │   Socket Messages   │   (TCP Server)   │
-└─────────────────┘                       └──────────────────┘                       └──────────────────┘
+┌─────────────────┐ HTTP ┌──────────────────┐ TCP/ICE ┌──────────────────┐
+│ Cliente Web │ ◄──────────────────► │ Proxy Express │ ◄──────────────────► │ Servidor Java │
+│ (HTML/CSS/JS) │ REST API Calls │ (Node.js) │ Socket/ICE Calls │ (TCP + ICE) │
+└─────────────────┘ └──────────────────┘ └──────────────────┘
 ```
+
 
 **Flujo de Comunicación:**
 
-1. **Cliente Web → Proxy HTTP**: El navegador realiza peticiones HTTP/AJAX al proxy Express (puerto 5000)
-2. **Proxy → Backend Java**: El proxy traduce las peticiones HTTP a mensajes JSON que el servidor TCP Java entiende (puerto 12345)
-3. **Backend Java → Proxy**: El servidor procesa la petición y responde con JSON
-4. **Proxy → Cliente Web**: El proxy reenvía la respuesta al navegador en formato JSON
+1. **Cliente Web → Proxy HTTP**: El navegador realiza peticiones HTTP/AJAX al proxy Express (puerto 5000) para autenticación, usuarios, grupos, mensajes de texto y envío de audio. Para llamadas y streaming de audio, se usa ZeroC ICE directamente.
+2. **Proxy → Backend Java (TCP)**: El proxy traduce las peticiones HTTP (autenticación, usuarios, grupos, texto, audio) a mensajes JSON que el servidor TCP Java entiende (puerto 12345).
+3. **Cliente Web → Backend Java (ICE)**: El cliente web se conecta directamente al servidor ICE (puerto 9099) para iniciar, aceptar/rechazar y finalizar llamadas, y para enviar/recibir streams de audio en tiempo real.
+4. **Backend Java (TCP/ICE) → Proxy/Cliente**: El servidor procesa las peticiones y responde o notifica según corresponda.
 
 ---
 
@@ -41,8 +42,8 @@ Esta es la **segunda entrega** del proyecto CumbiaChat, enfocada en la transici�
 | **2. Mensajes de texto** | Envío de mensajes a usuarios individuales o grupos | ✅ Implementado |
 | **3. Historial de mensajes** | Consultar mensajes previos de chats privados y grupales | ✅ Implementado |
 | **4. Gestión de usuarios** | Ver usuarios conectados y unirse a grupos | ✅ Implementado |
-
-> **Nota**: Las funcionalidades de llamadas en tiempo real (UDP) no se han implementado en esta versión web, ya que se implementarán mediante WebSockets en la entrega final.
+| **5. Notas de voz** | Envío de mensajes de audio grabados a usuarios individuales o grupos | ✅ Implementado (via TCP/Proxy) |
+| **6. Llamadas de voz en tiempo real** | Iniciar, aceptar, rechazar y finalizar llamadas de voz con otros usuarios | ✅ Implementado (via ZeroC ICE) |
 
 ---
 
@@ -53,32 +54,29 @@ Esta es la **segunda entrega** del proyecto CumbiaChat, enfocada en la transici�
 | Requisito | Versión mínima | Verificar instalación |
 |-----------|----------------|------------------------|
 | **Java JDK** | 17 o superior | `java -version` |
+| **ZeroC Ice** | 3.7.x o superior | `slice2java --version` (si está instalado) |
 | **Node.js** | 16 o superior | `node -v` |
 | **npm** | 8 o superior | `npm -v` |
+| **Gradle** | 7.x o superior | `gradle -v` |
 
 ---
 
-### Paso 1: Iniciar el Servidor Java (Backend)
+### Paso 1: Iniciar el Servidor Java (Backend TCP + ICE)
 
-1. Navega a la carpeta del servidor:
+1. Navega a la carpeta raíz del proyecto Java:
+
 ```
-   CumbiaChat\Cumbia_Chat\src\main\java\com\example\chat\TCP\
+  CumbiaChat\Cumbia_Chat
 ```
 
-2. Ejecuta el archivo `Server.java` desde tu IDE (IntelliJ IDEA, Eclipse, VS Code con extensión Java) o mediante línea de comandos:
+2. Ejecuta el servidor Java usando Gradle:
 ```bash
-   # Compilar (si usas Gradle)
-   cd CumbiaChat/Cumbia_Chat
-   ./gradlew build
-   
-   # Ejecutar el servidor
-   java -cp build/classes/java/main com.example.chat.TCP.Server
-```
+   gradle run
 
-3. Deberías ver el mensaje:
+Importante: El servidor se iniciará y mostrará un mensaje de progreso. Cuando la ejecución alcance un 80%, verás el mensaje indicando que ambos subsistemas están corriendo:
 ```
-   Servidor TCP corriendo en puerto 12345
-```
+Esto indica que el servidor está listo para recibir conexiones del proxy y del cliente web para mensajes, y del cliente web para llamadas de voz via ICE.
+
 
 > **¿Qué hace el servidor?** Gestiona todas las conexiones de clientes, mantiene el registro de usuarios conectados, grupos activos y el historial de mensajes. Opera en el puerto TCP **12345**.
 
@@ -128,24 +126,13 @@ Esta es la **segunda entrega** del proyecto CumbiaChat, enfocada en la transici�
 
 3. **Abre tu navegador** y accede a:
 ```
-   http://localhost:3000
+   http://localhost:5000
 ```
-   o si abriste otros clientes accede:
+   y para abrir otros clientes accede:
 ```
-   http://localhost:300x
+   http://localhost:5000
 ```
-
-4. **¿Necesitas varios clientes?** Puedes abrir múltiples ventanas del navegador (o usar diferentes puertos):
-```bash
-   # Cliente 1
-   npx http-server -p 3000
-   
-   # Cliente 2 (en otra terminal)
-   npx http-server -p 3001
-   
-   # Cliente 3
-   npx http-server -p 3002
-```
+   desde otros navegadores o en incognito
 
 ---
 
@@ -170,26 +157,34 @@ Esta es la **segunda entrega** del proyecto CumbiaChat, enfocada en la transici�
 - El historial de mensajes se carga automáticamente al abrir un chat
 - Incluye mensajes de texto y notificaciones de audios
 
+- 5️⃣  Enviar Notas de Voz
+Selecciona un usuario o grupo de la lista
+Haz clic en el botón 🎤 Grabar Audio
+Habla y suelta el botón para enviar la grabación
+El mensaje de audio se mostrará en el chat
+
+6️⃣ Iniciar una Llamada de Voz
+Selecciona un usuario de la lista (no grupos)
+Haz clic en el botón 📞 Llamar
+Espera a que el otro usuario acepte la llamada
+
 ---
 
-## 🧩 Tecnologías Utilizadas
-
-### **Backend (Java)**
-- **Lenguaje:** Java 17
-- **Framework de compilación:** Gradle
-- **Comunicación:** TCP Sockets + JSON (Gson)
-- **Audio:** `javax.sound.sampled`
-
-### **Proxy (Node.js)**
-- **Lenguaje:** JavaScript (Node.js)
-- **Framework:** Express.js
-- **Librerías:** CORS, Multer, net (sockets TCP)
-
-### **Frontend (Web)**
-- **Lenguaje:** HTML5, CSS3, JavaScript (ES6+)
-- **API:** Fetch API para llamadas HTTP
-- **Almacenamiento:** LocalStorage para sesiones
-
+🧩 Tecnologías Utilizadas
+Backend (Java)
+Lenguaje: Java 17
+Framework de compilación: Gradle
+Comunicación TCP: Sockets + JSON (Gson)
+Comunicación en Tiempo Real: ZeroC Ice (WebSocket)
+Audio: javax.sound.sampled, java.nio.file
+Proxy (Node.js)
+Lenguaje: JavaScript (Node.js)
+Framework: Express.js
+Librerías: CORS, Multer, net (sockets TCP), ice (ZeroC Ice)
+Frontend (Web)
+Lenguaje: HTML5, CSS3, JavaScript (ES6+)
+API: Fetch API para llamadas HTTP, ZeroC Ice JS para llamadas de voz
+Almacenamiento: LocalStorage para sesiones
 ---
 
 ## 📂 Estructura del Proyecto
