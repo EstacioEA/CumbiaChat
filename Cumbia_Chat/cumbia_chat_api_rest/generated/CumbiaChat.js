@@ -24,7 +24,7 @@
 
     let CumbiaChat = _ModuleRegistry.module("CumbiaChat");
 
-    Slice.defineSequence(CumbiaChat, "AudioBytesHelper", "Ice.ByteHelper", true);
+    Slice.defineSequence(CumbiaChat, "ByteSeqHelper", "Ice.ByteHelper", true);
 
     Slice.defineSequence(CumbiaChat, "StringSeqHelper", "Ice.StringHelper", false);
 
@@ -43,12 +43,12 @@
 
     Slice.defineOperations(CumbiaChat.ChatObserver, CumbiaChat.ChatObserverPrx, iceC_CumbiaChat_ChatObserver_ids, 0,
     {
-        "receiveAudioStream": [, , , , , [[7], ["CumbiaChat.AudioBytesHelper"]], , , , ],
-        "receiveAudioMessage": [, , , , , [[7], [7], ["CumbiaChat.AudioBytesHelper"]], , , , ],
         "incomingCall": [, , , , , [[7]], , , , ],
         "callAccepted": [, , , , , [[7]], , , , ],
         "callRejected": [, , , , , [[7]], , , , ],
-        "callEnded": [, , , , , [[7]], , , , ]
+        "callEnded": [, , , , , [[7]], , , , ],
+        "receiveAudioStream": [, , , , , [[7], ["CumbiaChat.ByteSeqHelper"]], , , , ],
+        "receiveAudioMessage": [, , , , , [[7], [7], ["CumbiaChat.ByteSeqHelper"]], , , , ]
     });
 
     const iceC_CumbiaChat_ChatService_ids = [
@@ -73,9 +73,11 @@
         "acceptCall": [, , , , , [[7], [7]], , , , ],
         "rejectCall": [, , , , , [[7], [7]], , , , ],
         "endCall": [, , , , , [[7], [7]], , , , ],
-        "streamAudio": [, , , , , [[7], [7], ["CumbiaChat.AudioBytesHelper"]], , , , ],
-        "sendAudioMessage": [, , , , [7], [[7], [7], ["CumbiaChat.AudioBytesHelper"]], , , , ],
-        "sendAudioMessageToGroup": [, , , , [7], [[7], [7], ["CumbiaChat.AudioBytesHelper"]], , , , ]
+        "getPendingCalls": [, , , , ["CumbiaChat.StringSeqHelper"], [[7]], , , , ],
+        "clearPendingCall": [, , , , , [[7], [7]], , , , ],
+        "streamAudio": [, , , , , [[7], [7], ["CumbiaChat.ByteSeqHelper"]], , , , ],
+        "sendAudioMessage": [, , , , [7], [[7], [7], ["CumbiaChat.ByteSeqHelper"]], , , , ],
+        "sendAudioMessageToGroup": [, , , , [7], [[7], [7], ["CumbiaChat.ByteSeqHelper"]], , , , ]
     });
     exports.CumbiaChat = CumbiaChat;
 }
