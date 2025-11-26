@@ -251,6 +251,48 @@ io.on("connection", (socket) => {
 
     await broadcastUsersList()
   })
+
+  socket.on("call_request", (data) => {
+    console.log(`[CALL] ${data.from} quiere llamar a ${data.to}`)
+    const targetSocket = userSockets.get(data.to)
+    if (targetSocket && targetSocket.connected) {
+      targetSocket.emit("incoming_call", { from: data.from, offer: data.offer })
+      console.log(`[CALL] Offer enviada a ${data.to}`)
+    } else {
+      socket.emit("call_failed", { reason: "Usuario no disponible" })
+    }
+  })
+
+  socket.on("call_accept", (data) => {
+    console.log(`[CALL] ${data.from} acepto la llamada de ${data.to}`)
+    const targetSocket = userSockets.get(data.to)
+    if (targetSocket && targetSocket.connected) {
+      targetSocket.emit("call_accepted", { from: data.from, answer: data.answer })
+    }
+  })
+
+  socket.on("call_reject", (data) => {
+    console.log(`[CALL] ${data.from} rechazo la llamada de ${data.to}`)
+    const targetSocket = userSockets.get(data.to)
+    if (targetSocket && targetSocket.connected) {
+      targetSocket.emit("call_rejected", { from: data.from })
+    }
+  })
+
+  socket.on("ice_candidate", (data) => {
+    const targetSocket = userSockets.get(data.to)
+    if (targetSocket && targetSocket.connected) {
+      targetSocket.emit("ice_candidate", { from: data.from, candidate: data.candidate })
+    }
+  })
+
+  socket.on("call_end", (data) => {
+    console.log(`[CALL] ${data.from} termino la llamada con ${data.to}`)
+    const targetSocket = userSockets.get(data.to)
+    if (targetSocket && targetSocket.connected) {
+      targetSocket.emit("call_ended", { from: data.from })
+    }
+  })
 })
 
 app.post("/api/messages/group/audio", upload.single("audio"), async (req, res) => {

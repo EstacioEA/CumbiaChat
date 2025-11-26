@@ -1,6 +1,6 @@
 /**
  * Logica principal del chat de CumbiaChat
- * VERSION: Socket.io + Audio (ZeroC Ice)
+ * VERSION: Socket.io + Audio (ZeroC Ice) + WebRTC Calls
  */
 
 const io = window.io // Declare the io variable
@@ -17,6 +17,13 @@ const appState = {
   audioChunks: [],
   isLoggedIn: false,
   chatMessages: {},
+  callState: {
+    active: false,
+    remoteUser: null,
+    peerConnection: null,
+    localStream: null,
+    isCaller: false,
+  },
 }
 
 // ===== ELEMENTOS DOM =====
@@ -158,6 +165,48 @@ socket.on("users_list", (users) => {
   renderUsersList()
 })
 
+socket.on("incoming_call", async (data) => {
+  console.log("[CALL] Llamada entrante de:", data.from)
+  showIncomingCallModal(data.from, data.offer)
+})
+
+socket.on("call_accepted", async (data) => {
+  console.log("[CALL] Llamada aceptada por:", data.from)
+  try {
+    await appState.callState.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
+    updateCallUI("connected")
+  } catch (e) {
+    console.error("[CALL] Error setRemoteDescription:", e)
+    endCall()
+  }
+})
+
+socket.on("call_rejected", (data) => {
+  console.log("[CALL] Llamada rechazada por:", data.from)
+  alert(`${data.from} rechazo la llamada`)
+  endCall()
+})
+
+socket.on("ice_candidate", async (data) => {
+  if (appState.callState.peerConnection && data.candidate) {
+    try {
+      await appState.callState.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
+    } catch (e) {
+      console.error("[CALL] Error agregando ICE candidate:", e)
+    }
+  }
+})
+
+socket.on("call_ended", (data) => {
+  console.log("[CALL] Llamada terminada por:", data.from)
+  endCall()
+})
+
+socket.on("call_failed", (data) => {
+  alert("Llamada fallida: " + data.reason)
+  endCall()
+})
+
 // ===== FUNCIONES UI =====
 
 function addMessageToUI(sender, text, timestamp, isOwn, animate = true) {
@@ -229,12 +278,20 @@ function renderUsersList() {
     div.style.cursor = "pointer"
     div.innerHTML = `
             <div class="list-item-avatar">${getRandomEmoji(username)}</div>
-            <div class="list-item-info">
+            <div class="list-item-info" style="flex: 1;">
                 <div class="list-item-name">${escapeHtml(username)}</div>
                 <div class="list-item-status online">En linea</div>
             </div>
+            <button class="btn-call" title="Llamar a ${escapeHtml(username)}" style="background: #4CAF50; border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: 8px;">
+                📞
+            </button>
         `
-    div.onclick = () => openChat(username, "private")
+    div.querySelector(".list-item-info").onclick = () => openChat(username, "private")
+    div.querySelector(".list-item-avatar").onclick = () => openChat(username, "private")
+    div.querySelector(".btn-call").onclick = (e) => {
+      e.stopPropagation()
+      startCall(username)
+    }
     elements.usersList.appendChild(div)
   })
 }
@@ -588,6 +645,303 @@ function switchTab(tabName) {
 
 function filterGroups() {}
 function filterUsers() {}
+
+// ===== LOGICA WEBRTC =====
+const rtcConfig = {
+  iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }],
+}
+
+async function startCall(targetUser) {
+  if (appState.callState.active) {
+    alert("Ya hay una llamada en curso")
+    return
+  }
+
+  console.log("[CALL] Iniciando llamada a:", targetUser)
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    appState.callState.localStream = stream
+
+    const pc = new RTCPeerConnection(rtcConfig)
+    appState.callState.peerConnection = pc
+    appState.callState.remoteUser = targetUser
+    appState.callState.isCaller = true
+    appState.callState.active = true
+
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream))
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit("ice_candidate", {
+          to: targetUser,
+          from: appState.currentUser,
+          candidate: e.candidate,
+        })
+      }
+    }
+
+    pc.ontrack = (e) => {
+      console.log("[CALL] Audio remoto recibido")
+      const audio = document.getElementById("remoteAudio") || createRemoteAudio()
+      audio.srcObject = e.streams[0]
+      audio.play().catch(console.error)
+    }
+
+    pc.onconnectionstatechange = () => {
+      console.log("[CALL] Estado conexion:", pc.connectionState)
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        endCall()
+      }
+    }
+
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+
+    socket.emit("call_request", {
+      to: targetUser,
+      from: appState.currentUser,
+      offer: offer,
+    })
+
+    showCallUI(targetUser, "calling")
+  } catch (e) {
+    console.error("[CALL] Error iniciando llamada:", e)
+    alert("Error al iniciar llamada: " + e.message)
+    endCall()
+  }
+}
+
+async function acceptCall(callerUser, offer) {
+  console.log("[CALL] Aceptando llamada de:", callerUser)
+  hideIncomingCallModal()
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    appState.callState.localStream = stream
+
+    const pc = new RTCPeerConnection(rtcConfig)
+    appState.callState.peerConnection = pc
+    appState.callState.remoteUser = callerUser
+    appState.callState.isCaller = false
+    appState.callState.active = true
+
+    stream.getTracks().forEach((track) => pc.addTrack(track, stream))
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        socket.emit("ice_candidate", {
+          to: callerUser,
+          from: appState.currentUser,
+          candidate: e.candidate,
+        })
+      }
+    }
+
+    pc.ontrack = (e) => {
+      console.log("[CALL] Audio remoto recibido")
+      const audio = document.getElementById("remoteAudio") || createRemoteAudio()
+      audio.srcObject = e.streams[0]
+      audio.play().catch(console.error)
+    }
+
+    pc.onconnectionstatechange = () => {
+      console.log("[CALL] Estado conexion:", pc.connectionState)
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        endCall()
+      }
+    }
+
+    await pc.setRemoteDescription(new RTCSessionDescription(offer))
+    const answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    socket.emit("call_accept", {
+      to: callerUser,
+      from: appState.currentUser,
+      answer: answer,
+    })
+
+    showCallUI(callerUser, "connected")
+  } catch (e) {
+    console.error("[CALL] Error aceptando llamada:", e)
+    alert("Error al aceptar llamada: " + e.message)
+    endCall()
+  }
+}
+
+function rejectCall(callerUser) {
+  console.log("[CALL] Rechazando llamada de:", callerUser)
+  socket.emit("call_reject", {
+    to: callerUser,
+    from: appState.currentUser,
+  })
+  hideIncomingCallModal()
+}
+
+function endCall() {
+  console.log("[CALL] Terminando llamada")
+
+  if (appState.callState.remoteUser && appState.callState.active) {
+    socket.emit("call_end", {
+      to: appState.callState.remoteUser,
+      from: appState.currentUser,
+    })
+  }
+
+  if (appState.callState.localStream) {
+    appState.callState.localStream.getTracks().forEach((track) => track.stop())
+  }
+
+  if (appState.callState.peerConnection) {
+    appState.callState.peerConnection.close()
+  }
+
+  appState.callState = {
+    active: false,
+    remoteUser: null,
+    peerConnection: null,
+    localStream: null,
+    isCaller: false,
+  }
+
+  hideCallUI()
+  hideIncomingCallModal()
+}
+
+function createRemoteAudio() {
+  let audio = document.getElementById("remoteAudio")
+  if (!audio) {
+    audio = document.createElement("audio")
+    audio.id = "remoteAudio"
+    audio.autoplay = true
+    document.body.appendChild(audio)
+  }
+  return audio
+}
+
+function showCallUI(user, status) {
+  let modal = document.getElementById("callModal")
+  if (!modal) {
+    modal = document.createElement("div")
+    modal.id = "callModal"
+    modal.innerHTML = `
+      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 20px; padding: 30px; text-align: center; min-width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+        <div style="font-size: 60px; margin-bottom: 15px;">📞</div>
+        <div id="callUser" style="font-size: 24px; font-weight: bold; color: white; margin-bottom: 10px;"></div>
+        <div id="callStatus" style="color: #ffd700; margin-bottom: 25px;"></div>
+        <div id="callTimer" style="font-size: 32px; color: white; margin-bottom: 25px; font-family: monospace;">00:00</div>
+        <button id="btnEndCall" style="background: #ff4444; color: white; border: none; padding: 15px 40px; border-radius: 30px; font-size: 18px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 0 auto;">
+          <span style="font-size: 24px;">📵</span> Colgar
+        </button>
+      </div>
+    `
+    modal.style.cssText =
+      "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;"
+    document.body.appendChild(modal)
+    document.getElementById("btnEndCall").onclick = endCall
+  }
+
+  document.getElementById("callUser").textContent = user
+  document.getElementById("callStatus").textContent = status === "calling" ? "Llamando..." : "En llamada"
+  document.getElementById("callTimer").textContent = "00:00"
+  modal.style.display = "flex"
+
+  if (status === "connected") {
+    startCallTimer()
+  }
+}
+
+function hideCallUI() {
+  const modal = document.getElementById("callModal")
+  if (modal) modal.style.display = "none"
+  stopCallTimer()
+}
+
+function updateCallUI(status) {
+  const statusEl = document.getElementById("callStatus")
+  if (statusEl) {
+    statusEl.textContent = status === "connected" ? "En llamada" : "Llamando..."
+  }
+  if (status === "connected") {
+    startCallTimer()
+  }
+}
+
+let callTimerInterval = null
+let callSeconds = 0
+
+function startCallTimer() {
+  callSeconds = 0
+  callTimerInterval = setInterval(() => {
+    callSeconds++
+    const mins = String(Math.floor(callSeconds / 60)).padStart(2, "0")
+    const secs = String(callSeconds % 60).padStart(2, "0")
+    const timerEl = document.getElementById("callTimer")
+    if (timerEl) timerEl.textContent = `${mins}:${secs}`
+  }, 1000)
+}
+
+function stopCallTimer() {
+  if (callTimerInterval) {
+    clearInterval(callTimerInterval)
+    callTimerInterval = null
+  }
+  callSeconds = 0
+}
+
+function showIncomingCallModal(caller, offer) {
+  let modal = document.getElementById("incomingCallModal")
+  if (!modal) {
+    modal = document.createElement("div")
+    modal.id = "incomingCallModal"
+    modal.innerHTML = `
+      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 20px; padding: 30px; text-align: center; min-width: 300px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); animation: pulse 1s infinite;">
+        <div style="font-size: 60px; margin-bottom: 15px;">📱</div>
+        <div style="color: #ffd700; margin-bottom: 10px;">Llamada entrante</div>
+        <div id="incomingCaller" style="font-size: 28px; font-weight: bold; color: white; margin-bottom: 25px;"></div>
+        <div style="display: flex; gap: 20px; justify-content: center;">
+          <button id="btnAcceptCall" style="background: #4CAF50; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-size: 18px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">✅</span> Aceptar
+          </button>
+          <button id="btnRejectCall" style="background: #ff4444; color: white; border: none; padding: 15px 30px; border-radius: 30px; font-size: 18px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px;">❌</span> Rechazar
+          </button>
+        </div>
+      </div>
+      <style>
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+      </style>
+    `
+    modal.style.cssText =
+      "position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;"
+    document.body.appendChild(modal)
+  }
+
+  document.getElementById("incomingCaller").textContent = caller
+  document.getElementById("btnAcceptCall").onclick = () => acceptCall(caller, offer)
+  document.getElementById("btnRejectCall").onclick = () => rejectCall(caller)
+  modal.style.display = "flex"
+
+  // Sonido de llamada entrante
+  try {
+    const ringtone = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ==")
+    ringtone.loop = true
+    ringtone.play().catch(() => {})
+    modal.ringtone = ringtone
+  } catch (e) {}
+}
+
+function hideIncomingCallModal() {
+  const modal = document.getElementById("incomingCallModal")
+  if (modal) {
+    modal.style.display = "none"
+    if (modal.ringtone) {
+      modal.ringtone.pause()
+      modal.ringtone = null
+    }
+  }
+}
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", init)
