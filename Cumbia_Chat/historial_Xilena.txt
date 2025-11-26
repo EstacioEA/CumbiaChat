@@ -1,2 +1,9 @@
 [2025-11-25 12:02:11] [TEXT] samuel -> Xilena : Hola
 [2025-11-25 12:08:26] [TEXT] samuel -> Xilena : Kio
+[2025-11-25 21:21:31] [TEXT] Diego -> Xilena : Como estaas
+[2025-11-25 21:30:45] [TEXT] ritmo -> Xilena : Hey
+[2025-11-25 21:35:35] [TEXT] Ritmo -> Xilena : Como estas
+[2025-11-25 21:35:50] [AUDIO] Ritmo -> Xilena : Ritmo_1764124550458.webm
+[2025-11-25 21:35:50] [TEXT] Ritmo -> Xilena : Ritmo_1764124550458.webm
+[2025-11-25 21:39:59] [TEXT] Ritmo -> Xilena : Hola
+[2025-11-25 21:41:05] [TEXT] Ritmo -> Xilena : /audios/Ritmo_1764124865805.webm

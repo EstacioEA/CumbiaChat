@@ -19,6 +19,11 @@ app.use(express.json())
 app.use(cors())
 app.use(express.static("../cumbia_chat_web"))
 
+const audiosDir = path.join(__dirname, "audios")
+if (!fs.existsSync(audiosDir)) fs.mkdirSync(audiosDir)
+app.use("/audios", express.static(audiosDir))
+
+// --- MULTER ---
 const audioStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "temp_uploads/"
@@ -31,6 +36,7 @@ const audioStorage = multer.diskStorage({
 })
 const upload = multer({ storage: audioStorage })
 
+// --- ICE GLOBALS ---
 let communicator
 let chatServicePrx
 let adapter
@@ -43,13 +49,12 @@ class ChatCallbackI extends CumbiaChat.ChatCallback {
     super()
     this.username = username
   }
-  
+
   receiveMessage(msg, groupName, current) {
     console.log(`[JAVA -> NODE] Mensaje para ${this.username}: ${msg.type} en ${groupName} de ${msg.sender}`)
-    
-    // Buscar el socket actual del usuario en el mapa global
+
     const socket = userSockets.get(this.username)
-    
+
     if (socket && socket.connected) {
       socket.emit("receive_message", {
         sender: msg.sender,
@@ -60,7 +65,7 @@ class ChatCallbackI extends CumbiaChat.ChatCallback {
       })
       console.log(`[JAVA -> NODE] Emitido OK a ${this.username}`)
     } else {
-      console.log(`[JAVA -> NODE] Socket de ${this.username} no disponible o desconectado`)
+      console.log(`[JAVA -> NODE] Socket de ${this.username} no disponible`)
     }
   }
 }
@@ -112,16 +117,15 @@ io.on("connection", (socket) => {
   let myUsername = null
 
   socket.on("login", async (data) => {
-    // Si ya esta logueado con este socket, ignorar
     if (myUsername === data.username) {
       console.log(`[WS] Login duplicado ignorado para: ${data.username}`)
       socket.emit("login_response", { success: true, username: data.username })
       return
     }
-    
+
     console.log(`[WS] Login intento: ${data.username}`)
     let servantAdded = false
-    
+
     try {
       await chatServicePrx.ice_ping()
       console.log("   Ping OK")
@@ -134,14 +138,12 @@ io.on("connection", (socket) => {
       console.log("   Adaptador vinculado")
 
       myIdentity = new Ice.Identity(data.username, "user")
-      
-      // Remover servant anterior si existe
+
       try {
         adapter.remove(myIdentity)
         console.log("   Servant anterior removido")
       } catch (e) {}
-      
-      // Crear servant SIN socket (usara el mapa global)
+
       const servant = new ChatCallbackI(data.username)
       adapter.add(servant, myIdentity)
       servantAdded = true
@@ -156,22 +158,21 @@ io.on("connection", (socket) => {
       console.log(`   <- Respuesta Java: ${success}`)
 
       socket.emit("login_response", { success, username: data.username })
-      
+
       if (success) {
         myUsername = data.username
         socket.username = data.username
-        
-        // Registrar socket en mapa global
+
         userSockets.set(data.username, socket)
         console.log(`   Socket registrado para ${data.username}`)
-        
+
         try {
           await chatServicePrx.joinGroup("general", data.username)
           console.log(`   ${data.username} unido al grupo 'general' en Java`)
         } catch (e) {
           console.log("   Error uniendo a general:", e.message)
         }
-        
+
         socket.join("general")
         await broadcastUsersList()
       } else {
@@ -200,7 +201,7 @@ io.on("connection", (socket) => {
       socket.join(d.groupName)
     } catch (e) {}
   })
-  
+
   socket.on("send_message", async (d) => {
     try {
       await chatServicePrx.sendMessage(d.content, d.sender, d.groupName, d.type || "TEXT")
@@ -208,7 +209,7 @@ io.on("connection", (socket) => {
       console.error("Error enviando mensaje:", e.message)
     }
   })
-  
+
   socket.on("get_groups", async () => {
     try {
       socket.emit("groups_list", await chatServicePrx.getGroups())
@@ -223,17 +224,16 @@ io.on("connection", (socket) => {
       console.error("Error obteniendo usuarios:", e.message)
     }
   })
-  
+
   socket.on("disconnect", async () => {
     console.log(`[WS] Desconexion: ${myUsername || socket.id}`)
-    
+
     if (myUsername) {
-      // Solo eliminar del mapa si es el socket actual
       if (userSockets.get(myUsername) === socket) {
         userSockets.delete(myUsername)
         console.log(`   Socket removido del mapa para ${myUsername}`)
       }
-      
+
       try {
         await chatServicePrx.logout(myUsername)
         console.log(`   Logout en Java para ${myUsername}`)
@@ -241,27 +241,47 @@ io.on("connection", (socket) => {
         console.error("   Error en logout Java:", e.message)
       }
     }
-    
+
     if (myIdentity) {
       try {
         adapter.remove(myIdentity)
         console.log(`   Servant removido para ${myIdentity.name}`)
       } catch (e) {}
     }
-    
+
     await broadcastUsersList()
   })
 })
 
 app.post("/api/messages/group/audio", upload.single("audio"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file" })
+  console.log("[AUDIO] Peticion recibida")
+  console.log("[AUDIO] File:", req.file ? req.file.filename : "null")
+  console.log("[AUDIO] Body:", req.body)
+
+  if (!req.file) {
+    console.log("[AUDIO] ERROR: No file")
+    return res.status(400).json({ error: "No file" })
+  }
+
   try {
     const buf = fs.readFileSync(req.file.path)
-    const iceData = new Int8Array(buf)
-    await chatServicePrx.sendAudio(iceData, req.body.sender, req.body.groupName, ".webm")
+    console.log("[AUDIO] Buffer size:", buf.length)
+
+    const fileName = `${req.body.sender}_${Date.now()}.webm`
+    const audioPath = path.join(audiosDir, fileName)
+    fs.writeFileSync(audioPath, buf)
+    console.log("[AUDIO] Archivo guardado en:", audioPath)
+
+    // Eliminar archivo temporal
     fs.unlinkSync(req.file.path)
-    res.json({ message: "OK" })
+
+    const audioUrl = `/audios/${fileName}`
+    await chatServicePrx.sendMessage(audioUrl, req.body.sender, req.body.groupName, "AUDIO")
+    console.log("[AUDIO] Mensaje AUDIO enviado a Java con URL:", audioUrl)
+
+    res.json({ message: "OK", audioUrl })
   } catch (e) {
+    console.error("[AUDIO] ERROR:", e)
     res.status(500).json({ error: e.message })
   }
 })
