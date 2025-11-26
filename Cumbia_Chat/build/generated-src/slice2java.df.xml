@@ -1,16 +1,16 @@
 <state>
-  <timestamp value='1764125668945' />
+  <timestamp value='1764129902534' />
   <sourceSet name='default'>
-    <source name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\CumbiaChat.ice'>
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\_Marker.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\Message.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatCallback.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatService.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\MessageListHelper.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatCallbackPrx.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\_ChatCallbackPrxI.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatServicePrx.java' />
-      <file name='C:\Users\Juand\OneDrive\Documentos\Icesi\Cuarto_Semestre\CompuNet1\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\_ChatServicePrxI.java' />
+    <source name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\CumbiaChat.ice'>
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\_Marker.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\Message.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatCallback.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatService.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\MessageListHelper.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatCallbackPrx.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\_ChatCallbackPrxI.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\ChatServicePrx.java' />
+      <file name='D:\Desktop\WorkSpace\COMPUNET\CumbiaChat\Cumbia_Chat\build\generated-src\com\example\chat\generated\CumbiaChat\_ChatServicePrxI.java' />
     </source>
     <arg value='C:\Program Files\ZeroC\Ice-3.7.10\\bin\slice2java.exe' />
     <arg value='-IC:\Program Files\ZeroC\Ice-3.7.10\\slice' />
