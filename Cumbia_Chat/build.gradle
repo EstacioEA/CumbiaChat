@@ -1,8 +1,21 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        // ESTA LÍNEA ARREGLA EL ERROR "XmlSlurper"
+        // Es necesaria porque las versiones nuevas de Java no incluyen esta librería por defecto
+        classpath 'org.codehaus.groovy:groovy-xml:3.0.9'
+    }
+}
+
 plugins {
     id 'java'
     id 'application'
     id 'org.springframework.boot' version '3.3.3'
     id 'io.spring.dependency-management' version '1.1.5'
+    // Plugin oficial de ZeroC Ice (Versión compatible)
+    id 'com.zeroc.gradle.ice-builder.slice' version '1.5.2'
 }
 
 group = 'com.example'
@@ -18,17 +31,27 @@ repositories {
     mavenCentral()
 }
 
-application {
-    mainClass = 'com.example.chat.TCP.Server'
+// Configuración de Ice: Busca el archivo CumbiaChat.ice en la carpeta raíz
+slice {
+    java {
+        // "../CumbiaChat.ice" sube un nivel para encontrar el archivo
+        files = [file("../CumbiaChat.ice")]
+    }
 }
 
-tasks.register('runClient', JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'com.example.chat.TCP.Client'
+application {
+    // Clase principal del nuevo servidor Ice
+    mainClass = 'com.example.chat.server.Server'
 }
 
 dependencies {
+    // Tus dependencias originales
     implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.springframework.boot:spring-boot-starter'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    
+    // Librería necesaria para correr Ice en Java
+    implementation 'com.zeroc:ice:3.7.10'
 }
 
 tasks.named('test') {

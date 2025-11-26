@@ -1,6 +1,10 @@
 /**
  * Lógica de la página de Login
+ * ADAPTADA PARA SOCKET.IO + ICE (Mantiene tu estilo y validaciones)
  */
+
+// --- CONEXIÓN SOCKET.IO (Necesaria para Ice) ---
+const socket = io();
 
 // Elementos del DOM
 const loginForm = document.getElementById('loginForm');
@@ -10,205 +14,135 @@ const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
 const loader = document.getElementById('loader');
 
-/**
- * Muestra el loader
- */
+// --- FUNCIONES DE UI (Tus funciones originales) ---
+
 function showLoader() {
     loader.style.display = 'flex';
     btnLogin.disabled = true;
 }
 
-/**
- * Oculta el loader
- */
 function hideLoader() {
     loader.style.display = 'none';
     btnLogin.disabled = false;
 }
 
-/**
- * Muestra un mensaje de error
- */
 function showError(message) {
     errorText.textContent = message;
     errorMessage.style.display = 'flex';
-
-    // Auto-ocultar después de 5 segundos
-    setTimeout(() => {
-        hideError();
-    }, 5000);
+    setTimeout(() => { hideError(); }, 5000);
 }
 
-/**
- * Oculta el mensaje de error
- */
 function hideError() {
     errorMessage.style.display = 'none';
 }
 
-/**
- * Valida el nombre de usuario
- */
 function validateUsername(username) {
     const trimmed = username.trim();
+    // Usamos valores default si CONFIG no cargó, para evitar errores
+    const minLength = (typeof CONFIG !== 'undefined' && CONFIG.APP) ? CONFIG.APP.MIN_USERNAME_LENGTH : 3;
+    const maxLength = (typeof CONFIG !== 'undefined' && CONFIG.APP) ? CONFIG.APP.MAX_USERNAME_LENGTH : 20;
 
-    if (trimmed.length < CONFIG.APP.MIN_USERNAME_LENGTH) {
-        return {
-            valid: false,
-            error: CONFIG.MESSAGES.LOGIN.ERROR_USERNAME_SHORT
-        };
-    }
+    if (trimmed.length < minLength) return { valid: false, error: `Mínimo ${minLength} caracteres` };
+    if (trimmed.length > maxLength) return { valid: false, error: `Máximo ${maxLength} caracteres` };
 
-    if (trimmed.length > CONFIG.APP.MAX_USERNAME_LENGTH) {
-        return {
-            valid: false,
-            error: `El nombre no puede tener más de ${CONFIG.APP.MAX_USERNAME_LENGTH} caracteres`
-        };
-    }
-
-    // Validar caracteres permitidos (alfanuméricos y guiones bajos)
     const validPattern = /^[a-zA-Z0-9_]+$/;
-    if (!validPattern.test(trimmed)) {
-        return {
-            valid: false,
-            error: 'Solo se permiten letras, números y guiones bajos'
-        };
-    }
+    if (!validPattern.test(trimmed)) return { valid: false, error: 'Solo letras, números y guiones bajos' };
 
-    return {
-        valid: true,
-        username: trimmed
-    };
+    return { valid: true, username: trimmed };
 }
 
-/**
- * Guarda la sesión del usuario
- */
 function saveSession(username) {
-    localStorage.setItem(CONFIG.STORAGE_KEYS.USERNAME, username);
-    localStorage.setItem(CONFIG.STORAGE_KEYS.SESSION, Date.now().toString());
+    // Usamos keys específicas para evitar conflictos
+    localStorage.setItem("cumbiachat_username", username);
+    localStorage.setItem("cumbiachat_session", Date.now().toString());
 }
 
-/**
- * Redirige al chat
- */
 function redirectToChat() {
     window.location.href = 'chat.html';
 }
 
-/**
- * Maneja el submit del formulario
- */
+// --- LÓGICA DE LOGIN (MODIFICADA PARA SOCKETS) ---
+
 async function handleLogin(event) {
     event.preventDefault();
     hideError();
 
     const username = usernameInput.value;
-
-    // Validar username
     const validation = validateUsername(username);
+    
     if (!validation.valid) {
         showError(validation.error);
         usernameInput.focus();
         return;
     }
 
-    // Mostrar loader
     showLoader();
 
-    try {
-        // Llamar a la API
-        const response = await api.login(validation.username);
-
-        if (response.success) {
-            // Login exitoso
-            console.log('Login exitoso:', response.data);
-
-            // Guardar sesión
-            saveSession(validation.username);
-
-            // Pequeña pausa para mostrar animación
-            setTimeout(() => {
-                hideLoader();
-                redirectToChat();
-            }, 800);
-
-        } else {
-            // Error en el login
-            hideLoader();
-
-            // Determinar tipo de error
-            const errorMsg = response.error || CONFIG.MESSAGES.LOGIN.ERROR_GENERIC;
-
-            if (errorMsg.includes('ya conectado') || errorMsg.includes('already')) {
-                showError(CONFIG.MESSAGES.LOGIN.ERROR_USERNAME_TAKEN);
-            } else {
-                showError(errorMsg);
-            }
-        }
-
-    } catch (error) {
-        console.error('Error inesperado:', error);
-        hideLoader();
-        showError(CONFIG.MESSAGES.LOGIN.ERROR_CONNECTION);
-    }
+    // CAMBIO CLAVE: Login vía Socket.io
+    console.log('Iniciando login via Socket.io para:', validation.username);
+    socket.emit('login', { username: validation.username });
 }
 
-/**
- * Verifica si ya hay sesión activa
- */
+// Escuchar respuesta del servidor (Node + Ice)
+socket.on('login_response', (data) => {
+    // Pequeño delay para que se vea tu animación de vinilo
+    setTimeout(() => {
+        hideLoader();
+        
+        if (data.success) {
+            console.log('Login exitoso:', data);
+            saveSession(data.username);
+            redirectToChat();
+        } else {
+            console.error('Error login:', data.message);
+            const errorMsg = data.message || "Error desconocido";
+            
+            if (errorMsg.includes('ya conectado') || errorMsg.includes('already')) {
+                showError("El usuario ya está conectado");
+            } else {
+                showError(errorMsg); // Muestra el error técnico si lo hay
+            }
+        }
+    }, 800); // 800ms de "efecto carga"
+});
+
+socket.on('connect_error', () => {
+    hideLoader();
+    showError("No se puede conectar al servidor (Node.js)");
+});
+
+// --- INICIALIZACIÓN (Tu lógica original) ---
+
 function checkExistingSession() {
-    const savedUsername = localStorage.getItem(CONFIG.STORAGE_KEYS.USERNAME);
-    const savedSession = localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION);
+    const savedUsername = localStorage.getItem("cumbiachat_username");
+    const savedSession = localStorage.getItem("cumbiachat_session");
 
     if (savedUsername && savedSession) {
-        // Verificar que la sesión no sea muy antigua (opcional)
         const sessionTime = parseInt(savedSession);
         const currentTime = Date.now();
-        const hoursSinceLogin = (currentTime - sessionTime) / (1000 * 60 * 60);
-
-        // Si la sesión tiene menos de 24 horas, redirigir
-        if (hoursSinceLogin < 24) {
-            console.log('Sesión existente encontrada, redirigiendo...');
+        // Sesión válida por 24 horas
+        if ((currentTime - sessionTime) < (24 * 60 * 60 * 1000)) {
+            console.log('Sesión activa, redirigiendo...');
             redirectToChat();
         }
     }
 }
 
-/**
- * Agrega efectos visuales al input
- */
 function setupInputEffects() {
-    usernameInput.addEventListener('input', () => {
-        hideError();
-    });
-
+    usernameInput.addEventListener('input', () => hideError());
     usernameInput.addEventListener('keypress', (e) => {
-        // Enter también dispara el submit
-        if (e.key === 'Enter') {
-            loginForm.dispatchEvent(new Event('submit'));
-        }
+        if (e.key === 'Enter') loginForm.dispatchEvent(new Event('submit'));
     });
 }
 
-/**
- * Inicialización
- */
 function init() {
-    // Verificar sesión existente
     checkExistingSession();
-
-    // Agregar event listeners
     loginForm.addEventListener('submit', handleLogin);
     setupInputEffects();
-
-    // Focus automático en el input
     usernameInput.focus();
-
-    console.log('🎵 CumbiaChat Login inicializado');
+    console.log('🎵 CumbiaChat Login (Socket) inicializado');
 }
 
-// Iniciar cuando el DOM esté listo
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

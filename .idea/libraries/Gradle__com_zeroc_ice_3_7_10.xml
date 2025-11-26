@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="Gradle: com.zeroc:ice:3.7.10" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="com.zeroc" artifactId="ice" version="3.7.10" baseVersion="3.7.10" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.zeroc/ice/3.7.10/ca45473c5e197ace9510c4718fe2dfa4d3fdba29/ice-3.7.10.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.zeroc/ice/3.7.10/b9fbb99c51048f12394f56cc35a9cec2b8ae6baa/ice-3.7.10-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/com.zeroc/ice/3.7.10/3ad1f6f7365b8866c795da8230fd05a5244f1dc9/ice-3.7.10-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

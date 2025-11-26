@@ -1,0 +1,6 @@
+[2025-11-25 11:15:11] [TEXT] Juan -> Diego : Hola
+[2025-11-25 11:22:54] [TEXT] Juan -> Diego : Hola
+[2025-11-25 11:32:02] [TEXT] Juan -> Diego : Hola
+[2025-11-25 11:55:10] [TEXT] Juan -> Diego : Hola
+[2025-11-25 11:58:07] [TEXT] Juan -> Diego : Como vas
+[2025-11-25 21:21:22] [TEXT] Xilena -> Diego : Hola

@@ -70,11 +70,11 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\Cumbia_Chat-0.0.1-SNAPSHOT-plain.jar;%APP_HOME%\lib\gson-2.10.1.jar
+set CLASSPATH=%APP_HOME%\lib\Cumbia_Chat-0.0.1-SNAPSHOT-plain.jar;%APP_HOME%\lib\gson-2.10.1.jar;%APP_HOME%\lib\spring-boot-starter-3.3.3.jar;%APP_HOME%\lib\ice-3.7.10.jar;%APP_HOME%\lib\spring-boot-autoconfigure-3.3.3.jar;%APP_HOME%\lib\spring-boot-3.3.3.jar;%APP_HOME%\lib\spring-boot-starter-logging-3.3.3.jar;%APP_HOME%\lib\jakarta.annotation-api-2.1.1.jar;%APP_HOME%\lib\spring-context-6.1.12.jar;%APP_HOME%\lib\spring-aop-6.1.12.jar;%APP_HOME%\lib\spring-beans-6.1.12.jar;%APP_HOME%\lib\spring-expression-6.1.12.jar;%APP_HOME%\lib\spring-core-6.1.12.jar;%APP_HOME%\lib\snakeyaml-2.2.jar;%APP_HOME%\lib\logback-classic-1.5.7.jar;%APP_HOME%\lib\log4j-to-slf4j-2.23.1.jar;%APP_HOME%\lib\jul-to-slf4j-2.0.16.jar;%APP_HOME%\lib\spring-jcl-6.1.12.jar;%APP_HOME%\lib\micrometer-observation-1.13.3.jar;%APP_HOME%\lib\logback-core-1.5.7.jar;%APP_HOME%\lib\slf4j-api-2.0.16.jar;%APP_HOME%\lib\log4j-api-2.23.1.jar;%APP_HOME%\lib\micrometer-commons-1.13.3.jar
 
 
 @rem Execute Cumbia_Chat
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %CUMBIA_CHAT_OPTS%  -classpath "%CLASSPATH%" com.example.chat.TCP.Server %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %CUMBIA_CHAT_OPTS%  -classpath "%CLASSPATH%" com.example.chat.server.Server %*
 
 :end
 @rem End local scope for the variables with windows NT shell
